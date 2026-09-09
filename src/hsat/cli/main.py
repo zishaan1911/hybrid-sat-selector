@@ -239,6 +239,9 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument("--max-gb", type=float, help="stop once this many GB are fetched")
         p.set_defaults(func=func)
 
+    from .graphs import add_parser as add_graphs_parser
+
+    add_graphs_parser(sub)
     return parser
 
 
