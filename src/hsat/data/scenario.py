@@ -90,6 +90,38 @@ class Scenario:
             metadata=dict(self.metadata),
         )
 
+    def subset_instances(self, mask: np.ndarray, label: str = "subset") -> Scenario:
+        """Return a copy restricted to the instances selected by a boolean mask.
+
+        Needed to hold the instance set fixed across representations: the graph and
+        hybrid selectors can only run where a CNF is on disk, so the feature-only
+        baseline has to be re-evaluated on that same set. Comparing a hybrid on 333
+        instances with a feature-only selector on 353 would confound representation with
+        instance set.
+
+        CV fold labels are carried through unchanged, so folds stay comparable across
+        subsets — but they will no longer be equal in size.
+        """
+        mask = np.asarray(mask, dtype=bool)
+        if mask.shape != (self.n_instances,):
+            raise ValueError(f"mask has shape {mask.shape}, expected ({self.n_instances},)")
+        if not mask.any():
+            raise ValueError("mask selects no instances")
+        rows = np.flatnonzero(mask)
+        return Scenario(
+            name=f"{self.name}[{label}: {rows.size}/{self.n_instances}]",
+            instances=[self.instances[i] for i in rows],
+            algorithms=list(self.algorithms),
+            cutoff=self.cutoff,
+            runtime=self.runtime[rows].copy(),
+            solved=self.solved[rows].copy(),
+            status=self.status.iloc[rows].copy(),
+            features=self.features.iloc[rows].copy(),
+            feature_costs=None if self.feature_costs is None else self.feature_costs.iloc[rows].copy(),
+            folds=None if self.folds is None else self.folds[rows].copy(),
+            metadata=dict(self.metadata),
+        )
+
     def summary(self) -> dict[str, Any]:
         total = self.solved.size
         return {

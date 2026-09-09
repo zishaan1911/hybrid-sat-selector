@@ -162,3 +162,21 @@ def test_oracle_share_excludes_unsolvable_instances_and_splits_ties(toy: Scenari
     assert shares[0] == pytest.approx(2.5 / 4)
     assert shares[1] == pytest.approx(1.5 / 4)
     assert shares.sum() == pytest.approx(1.0)
+
+
+def test_subset_instances_keeps_every_matrix_aligned(toy: Scenario) -> None:
+    subset = toy.subset_instances(np.array([True, False, True]), label="cnf")
+    assert subset.instances == ["i0", "i2"]
+    assert subset.n_instances == 2
+    assert subset.runtime.tolist() == [[1.0, 10.0], [3.0, 4.0]]
+    assert subset.solved.tolist() == [[True, False], [True, True]]
+    assert subset.features["f"].tolist() == [0.0, 2.0]
+    assert subset.folds.tolist() == [1, 1]
+    assert "2/3" in subset.name
+
+
+def test_subset_instances_validates_the_mask(toy: Scenario) -> None:
+    with pytest.raises(ValueError, match="expected"):
+        toy.subset_instances(np.array([True, False]))
+    with pytest.raises(ValueError, match="no instances"):
+        toy.subset_instances(np.zeros(3, dtype=bool))
