@@ -126,6 +126,64 @@ def cmd_experiment(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolver(args: argparse.Namespace):
+    from ..data.download import download_map
+    from ..data.gbd import HashMap
+    from ..data.resolver import CnfResolver
+
+    map_path = Path(args.map)
+    if not map_path.exists():
+        print(f"hash map not found at {map_path}, downloading...", file=sys.stderr)
+        download_map(map_path)
+    return CnfResolver(HashMap.load(map_path), cache_dir=args.cache)
+
+
+def cmd_resolve(args: argparse.Namespace) -> int:
+    scenario = Scenario.load(args.scenario)
+    report = _resolver(args).coverage(scenario)
+    print(f"# {report['scenario']}: CNF availability for the graph branch\n")
+    for key in ("instances", "local", "downloadable", "unresolved"):
+        print(f"{key:>14}: {report[key]}")
+    print(f"{'resolved':>14}: {report['resolved_fraction']:.1%}")
+    print(f"{'cached':>14}: {report['local_fraction']:.1%}")
+    if report["unresolved_examples"]:
+        print("\nunresolved examples:")
+        for name in report["unresolved_examples"]:
+            print(f"  {name}")
+    return 0
+
+
+def cmd_fetch(args: argparse.Namespace) -> int:
+    from ..data.download import fetch_all
+
+    scenario = Scenario.load(args.scenario)
+    resolver = _resolver(args)
+    resolutions = resolver.resolve_all(scenario)
+    pending = sum(1 for r in resolutions if r.status.value == "downloadable")
+    print(f"# {scenario.name}: {pending} instances to fetch into {resolver.cache_dir}")
+
+    state = {"done": 0, "bytes": 0, "failed": 0}
+
+    def progress(outcome) -> None:
+        if outcome.skipped:
+            return
+        state["done"] += 1
+        state["bytes"] += outcome.bytes_written
+        if not outcome.ok:
+            state["failed"] += 1
+            print(f"  FAILED {outcome.instance_id}: {outcome.error}", file=sys.stderr)
+        elif state["done"] % 10 == 0 or state["done"] == pending:
+            print(f"  {state['done']}/{pending}  {state['bytes'] / 1e9:.2f} GB")
+
+    max_bytes = int(args.max_gb * 1e9) if args.max_gb else None
+    fetch_all(resolver, resolutions, limit=args.limit, max_bytes=max_bytes, on_progress=progress)
+    print(
+        f"\nfetched {state['done'] - state['failed']} instances "
+        f"({state['bytes'] / 1e9:.2f} GB), {state['failed']} failed"
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hsat", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -155,6 +213,22 @@ def build_parser() -> argparse.ArgumentParser:
                    help="restrict to the proposal's Table 4.1 portfolio")
     p.add_argument("--out", type=Path, help="write the summary rows to a CSV file")
     p.set_defaults(func=cmd_experiment)
+
+    for name, help_text, func in (
+        ("resolve", "report CNF availability for a scenario", cmd_resolve),
+        ("fetch", "download the scenario's CNF instances from GBD", cmd_fetch),
+    ):
+        p = sub.add_parser(name, help=help_text)
+        p.add_argument("scenario", type=Path)
+        p.add_argument("--map", type=Path, default=Path("data/gbd-hashes.txt"),
+                       help="GBD hash/filename map (downloaded if absent)")
+        p.add_argument("--cache", type=Path, default=Path("data/cnf"),
+                       help="directory holding downloaded CNF files")
+        if name == "fetch":
+            p.add_argument("--limit", type=int, help="stop after this many instances")
+            p.add_argument("--max-gb", type=float, help="stop once this many GB are fetched")
+        p.set_defaults(func=func)
+
     return parser
 
 
