@@ -1,0 +1,46 @@
+# Data — never committed
+data/
+cnf/
+aslib_data/
+benchmarks/
+*.cnf
+*.cnf.gz
+*.cnf.bz2
+*.arff
+
+# Models, caches, logs
+checkpoints/
+runs/
+logs/
+wandb/
+*.pt
+*.pth
+*.ckpt
+cache/
+
+# Solver builds
+solvers/
+scripts/build/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Keep result tables and configs (explicitly re-included)
+!experiments/**/results/**/*.csv
+!experiments/**/results/**/*.json
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
