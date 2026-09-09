@@ -128,3 +128,34 @@ def test_compare_runs_every_selector_on_identical_folds(learnable: Scenario) -> 
     # The SBS and VBS columns are properties of the folds, so they must agree exactly.
     assert rows[0]["sbs_par10"] == pytest.approx(rows[1]["sbs_par10"])
     assert rows[0]["vbs_par10"] == pytest.approx(rows[1]["vbs_par10"])
+
+
+def test_pooled_metrics_are_computed_over_every_test_instance(learnable: Scenario) -> None:
+    result = cross_validate(learnable, SBSSelector)
+    assert result.pooled is not None
+    assert result.pooled.n_instances == learnable.n_instances
+    assert result.pooled.par10 == pytest.approx(result.pooled.sbs_par10)
+
+
+def test_pooled_gap_closed_survives_a_degenerate_fold(learnable: Scenario) -> None:
+    """One fold where SBS == VBS must not blow up the reported ratio.
+
+    Averaging per-fold ratios divides by that fold's near-zero SBS-VBS interval and
+    produces values in the hundreds of percent; pooling has one stable denominator.
+    """
+    # Make fold 1 trivial: solver A is optimal on every one of its instances.
+    trivial = learnable.folds == 1
+    learnable.runtime[trivial] = np.array([1.0, 10.0])
+    learnable.solved[trivial] = np.array([True, False])
+
+    result = cross_validate(learnable, lambda: FeatureClassifier("hgb", seed=0))
+    per_fold = result.summary()["gap_closed_fold_std"]
+    pooled = result.pooled.gap_closed
+    assert -1.0 <= pooled <= 1.0, pooled
+    assert per_fold >= 0.0  # recorded for transparency, not used as the headline
+
+
+def test_pooled_oracle_reaches_the_vbs(learnable: Scenario) -> None:
+    result = cross_validate(learnable, OracleSelector)
+    assert result.pooled.gap_closed == pytest.approx(1.0)
+    assert result.pooled.accuracy == pytest.approx(1.0)

@@ -92,6 +92,10 @@ def cmd_experiment(args: argparse.Namespace) -> int:
             print(f"{scenario.name}: fewer than two proposal solvers present", file=sys.stderr)
             return 1
         scenario = scenario.subset_algorithms(names)
+    if args.cnf_only:
+        mask = _resolver(args).usable_mask(scenario, require_local=True)
+        scenario = scenario.subset_instances(mask, label="cnf")
+        print(f"# restricted to instances with a cached CNF: {int(mask.sum())}/{mask.size}")
 
     prototypes = default_selectors(seed=args.seed)
     factories = [(lambda p=p: deepcopy(p)) for p in prototypes]
@@ -99,17 +103,18 @@ def cmd_experiment(args: argparse.Namespace) -> int:
 
     width = max(len(r["selector"]) for r in rows)
     print(f"# {scenario.name}: {scenario.n_instances} instances x {scenario.n_algorithms} algorithms")
-    print(f"# {rows[0]['n_folds']}-fold CV, PAR{args.k}, mean +- std across folds\n")
+    print(f"# {rows[0]['n_folds']}-fold CV, PAR{args.k} pooled over all test instances;")
+    print(f"# 'fold+-' is the across-fold standard deviation of PAR{args.k}\n")
     header = (
-        f"{'selector':<{width}}  {f'PAR{args.k}':>10} {'+-':>8}  {'gap closed':>10} {'+-':>7}"
+        f"{'selector':<{width}}  {f'PAR{args.k}':>10} {'fold+-':>8}  {'gap closed':>10}"
         f"  {'acc':>6}  {'solved':>7}  {'fallback':>8}"
     )
     print(header)
     print("-" * len(header))
     for row in rows:
         print(
-            f"{row['selector']:<{width}}  {row['par10']:>10,.0f} {row['par10_std']:>8,.0f}"
-            f"  {row['gap_closed']:>9.1%} {row['gap_closed_std']:>7.1%}"
+            f"{row['selector']:<{width}}  {row['par10']:>10,.0f} {row['par10_fold_std']:>8,.0f}"
+            f"  {row['gap_closed']:>10.1%}"
             f"  {row['accuracy']:>5.1%}  {row['solved_fraction']:>6.1%}  {row['fallbacks']:>8d}"
         )
 
@@ -211,6 +216,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--portfolio", action="store_true",
                    help="restrict to the proposal's Table 4.1 portfolio")
+    p.add_argument("--cnf-only", action="store_true",
+                   help="restrict to instances whose CNF is cached, so the result is "
+                        "comparable with the graph and hybrid selectors")
+    p.add_argument("--map", type=Path, default=Path("data/gbd-hashes.txt"))
+    p.add_argument("--cache", type=Path, default=Path("data/cnf"))
     p.add_argument("--out", type=Path, help="write the summary rows to a CSV file")
     p.set_defaults(func=cmd_experiment)
 

@@ -17,7 +17,13 @@ import numpy as np
 from sklearn.model_selection import KFold
 
 from ..data.scenario import Scenario
-from ..eval.metrics import SelectorReport, evaluate, par_cost_matrix
+from ..eval.metrics import (
+    SelectorReport,
+    evaluate,
+    gap_closed,
+    par_cost_matrix,
+    single_best,
+)
 from ..models.selectors import Selector
 
 
@@ -35,9 +41,37 @@ def fold_indices(scenario: Scenario, n_splits: int = 10, seed: int = 0) -> list[
 
 
 @dataclass
+class Pooled:
+    """Metrics computed once over every test instance, not averaged across folds.
+
+    `gap_closed` is a ratio whose denominator is the SBS-VBS interval of the evaluation
+    set. On a single fold of 33 instances that interval is sometimes near zero, and the
+    ratio then explodes: averaging per-fold ratios on SAT18-EXP with 37 solvers produced
+    a mean of 9.4% with a standard deviation of 121%, which describes the instability of
+    the estimator rather than anything about the selector.
+
+    Pooling instead — one PAR10, one SBS and one VBS over all test instances, each
+    instance scored by the model and SBS fitted without it — keeps the leak-free property
+    of cross-validation and gives a ratio with a stable denominator. Pooled figures are
+    the headline; the across-fold standard deviation of PAR10 is kept as the variability
+    measure, since PAR10 is a mean rather than a ratio and averages honestly.
+    """
+
+    par10: float
+    sbs_par10: float
+    vbs_par10: float
+    gap_closed: float
+    accuracy: float
+    mean_regret: float
+    solved_fraction: float
+    n_instances: int
+
+
+@dataclass
 class CVResult:
     name: str
     folds: list[SelectorReport]
+    pooled: Pooled | None = None
 
     def _series(self, field: str) -> np.ndarray:
         return np.array([getattr(r, field) for r in self.folds], dtype=float)
@@ -55,17 +89,21 @@ class CVResult:
         return float(finite.std(ddof=1)) if finite.size > 1 else 0.0
 
     def summary(self) -> dict[str, Any]:
+        """Pooled metrics as the headline, per-fold spread alongside."""
+        pooled = self.pooled
         return {
             "selector": self.name,
-            "par10": self.mean("par10"),
-            "par10_std": self.std("par10"),
-            "sbs_par10": self.mean("sbs_par10"),
-            "vbs_par10": self.mean("vbs_par10"),
-            "gap_closed": self.mean("gap_closed"),
-            "gap_closed_std": self.std("gap_closed"),
-            "accuracy": self.mean("accuracy"),
-            "mean_regret": self.mean("mean_regret"),
-            "solved_fraction": self.mean("solved_fraction"),
+            "par10": pooled.par10 if pooled else self.mean("par10"),
+            "par10_fold_std": self.std("par10"),
+            "sbs_par10": pooled.sbs_par10 if pooled else self.mean("sbs_par10"),
+            "vbs_par10": pooled.vbs_par10 if pooled else self.mean("vbs_par10"),
+            "gap_closed": pooled.gap_closed if pooled else self.mean("gap_closed"),
+            "gap_closed_fold_mean": self.mean("gap_closed"),
+            "gap_closed_fold_std": self.std("gap_closed"),
+            "accuracy": pooled.accuracy if pooled else self.mean("accuracy"),
+            "mean_regret": pooled.mean_regret if pooled else self.mean("mean_regret"),
+            "solved_fraction": pooled.solved_fraction if pooled else self.mean("solved_fraction"),
+            "n_instances": pooled.n_instances if pooled else 0,
             "n_folds": len(self.folds),
             "fallbacks": int(sum((r.extra or {}).get("fallbacks", 0) for r in self.folds)),
         }
@@ -84,11 +122,21 @@ def cross_validate(
 
     reports: list[SelectorReport] = []
     name = ""
+    pooled_rows: list[np.ndarray] = []
+    pooled_choices: list[np.ndarray] = []
+    pooled_sbs: list[np.ndarray] = []
+
     for train_idx, test_idx in splits:
         selector = make_selector()
         name = selector.name
         selector.fit(scenario, train_idx, cost)
         choices = selector.predict(scenario, test_idx)
+
+        fold_sbs, _ = single_best(cost, train_idx)
+        pooled_rows.append(np.asarray(test_idx, dtype=int))
+        pooled_choices.append(np.asarray(choices, dtype=int))
+        pooled_sbs.append(np.full(len(test_idx), fold_sbs, dtype=int))
+
         report = evaluate(
             scenario,
             choices,
@@ -102,7 +150,25 @@ def cross_validate(
         report.extra = {**(report.extra or {}), "fallbacks": int(getattr(selector, "fallback_", 0))}
         reports.append(report)
 
-    return CVResult(name=name, folds=reports)
+    rows = np.concatenate(pooled_rows)
+    choices = np.concatenate(pooled_choices)
+    sbs_choices = np.concatenate(pooled_sbs)
+
+    par10 = float(cost[rows, choices].mean())
+    sbs = float(cost[rows, sbs_choices].mean())
+    vbs = float(cost[rows].min(axis=1).mean())
+    best = cost[rows].min(axis=1)
+    pooled = Pooled(
+        par10=par10,
+        sbs_par10=sbs,
+        vbs_par10=vbs,
+        gap_closed=gap_closed(par10, sbs, vbs),
+        accuracy=float(np.mean(cost[rows, choices] <= best + tolerance)),
+        mean_regret=float(np.mean(cost[rows, choices] - best)),
+        solved_fraction=float(scenario.solved[rows, choices].mean()),
+        n_instances=int(rows.size),
+    )
+    return CVResult(name=name, folds=reports, pooled=pooled)
 
 
 def compare(
