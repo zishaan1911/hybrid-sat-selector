@@ -67,8 +67,9 @@ Phase A splits further, which matters for sequencing:
   [10.5281/zenodo.15125952](https://zenodo.org/records/15125952) — `sc02to24.zip` (28.7 GB, CC-BY-4.0)
   plus `sc02to24-gbd-hashes-filenames.txt`, a GBD-hash ↔ filename map. The map is the join key
   between ASlib instance ids and the archive.
-- Secondary / selective: the Global Benchmark Database (GBD) for per-hash download, avoiding the
-  full 28.7 GB when only ~750 instances are needed.
+- Secondary / selective: the [Global Benchmark Database](https://benchmark-database.de/) (GBD, and
+  its `gbd-tools` client) for per-hash lookup and download, avoiding the full 28.7 GB when only
+  ~750 instances are needed.
 - Fallback: per-year competition download pages under `satcompetition.github.io`.
 
 A resolver module (M2) owns this: given an ASlib instance id, return a local CNF path, or record the
@@ -285,4 +286,9 @@ Checked directly while writing, not from memory:
 - Zenodo record 15125952: `sc02to24.zip`, 28.7 GB, CC-BY-4.0, with GBD hash↔filename map.
 - Repositories reachable with release tags: `hadarshavit/revisiting_satzilla`, `arminbiere/kissat`
   (`sc2023`), `arminbiere/cadical` (`sc2021`), `msoos/cryptominisat`, `niklasso/minisat`,
-  `audemard/glucose`.
+  `audemard/glucose` (`4.1`).
+- GBD is served at `benchmark-database.de` with a `gbd-tools` Python client on PyPI.
+
+Worked figure behind the Phase-B sizing concern: 400 instances × 5 solvers × 5000 s worst case is
+1.0 × 10⁷ CPU-seconds ≈ 116 CPU-days, which is why the cutoff and instance count are the first
+things to reduce.
