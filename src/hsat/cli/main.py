@@ -79,6 +79,53 @@ def cmd_portfolio(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_experiment(args: argparse.Namespace) -> int:
+    from copy import deepcopy
+
+    from ..eval.crossval import compare
+    from ..models.selectors import default_selectors
+
+    scenario = Scenario.load(args.scenario)
+    if args.portfolio:
+        names = [m.algorithm for m in match_portfolio(scenario) if m.algorithm]
+        if len(names) < 2:
+            print(f"{scenario.name}: fewer than two proposal solvers present", file=sys.stderr)
+            return 1
+        scenario = scenario.subset_algorithms(names)
+
+    prototypes = default_selectors(seed=args.seed)
+    factories = [(lambda p=p: deepcopy(p)) for p in prototypes]
+    rows = compare(scenario, factories, k=args.k)
+
+    width = max(len(r["selector"]) for r in rows)
+    print(f"# {scenario.name}: {scenario.n_instances} instances x {scenario.n_algorithms} algorithms")
+    print(f"# {rows[0]['n_folds']}-fold CV, PAR{args.k}, mean +- std across folds\n")
+    header = (
+        f"{'selector':<{width}}  {f'PAR{args.k}':>10} {'+-':>8}  {'gap closed':>10} {'+-':>7}"
+        f"  {'acc':>6}  {'solved':>7}  {'fallback':>8}"
+    )
+    print(header)
+    print("-" * len(header))
+    for row in rows:
+        print(
+            f"{row['selector']:<{width}}  {row['par10']:>10,.0f} {row['par10_std']:>8,.0f}"
+            f"  {row['gap_closed']:>9.1%} {row['gap_closed_std']:>7.1%}"
+            f"  {row['accuracy']:>5.1%}  {row['solved_fraction']:>6.1%}  {row['fallbacks']:>8d}"
+        )
+
+    if args.out:
+        import csv
+
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with out.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"\nwrote {out}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hsat", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -99,6 +146,15 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("portfolio", help="map proposal solvers onto scenario algorithms")
     p.add_argument("scenario", type=Path)
     p.set_defaults(func=cmd_portfolio)
+
+    p = sub.add_parser("experiment", help="cross-validated comparison of feature-based selectors")
+    p.add_argument("scenario", type=Path)
+    p.add_argument("--k", type=int, default=10)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--portfolio", action="store_true",
+                   help="restrict to the proposal's Table 4.1 portfolio")
+    p.add_argument("--out", type=Path, help="write the summary rows to a CSV file")
+    p.set_defaults(func=cmd_experiment)
     return parser
 
 
