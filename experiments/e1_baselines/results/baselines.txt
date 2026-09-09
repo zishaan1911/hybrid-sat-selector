@@ -1,0 +1,116 @@
+
+# SAT18-EXP: 353 instances x 37 algorithms
+# cutoff 5000s, PAR10
+
+rank  algorithm                           PAR10   solved   oracle%
+   1  MapleLCMDistChronoBT            21,132.11   58.6%     3.1%
+   2  Maple_LCM_Scavel_fix2           22,057.75   56.7%     1.0%
+   3  cms55-main-all4fixed            22,151.26   56.7%     7.0%
+   4  CaDiCaL                         22,317.42   56.7%    16.8%
+   5  Maple_CM_ordUIP                 22,690.24   55.5%     0.3%
+   6  Maple_CM_ordUIP+                22,946.86   55.0%     0.3%
+      ... 31 more                
+
+ SBS  MapleLCMDistChronoBT            21,132.11
+ VBS  (oracle)                         9,841.23
+
+SBS-VBS gap: 11,290.88s PAR10 (53.4% of SBS) — the room a selector has to win.
+Instances no algorithm solves: 67 (19.0%) — unreachable by any selector.
+
+# SAT18-EXP: proposal Table 4.1 portfolio match
+
+MiniSat        ->  Minisat-v2.2.0-106-ge2dd095
+Glucose        ->  glucose4.2.1
+CaDiCaL        ->  CaDiCaL
+CryptoMiniSat  ->  cms55-main-all4fixed
+Kissat         ->  -- not present --
+
+4/5 solver families represented.
+
+# SAT18-EXP[4 algs]: 353 instances x 4 algorithms
+# cutoff 5000s, PAR10
+
+rank  algorithm                           PAR10   solved   oracle%
+   1  cms55-main-all4fixed            22,151.26   56.7%    28.3%
+   2  CaDiCaL                         22,317.42   56.7%    36.3%
+   3  glucose4.2.1                    27,341.96   46.2%    21.1%
+   4  Minisat-v2.2.0-106-ge2dd095     28,662.76   43.6%    14.3%
+
+ SBS  cms55-main-all4fixed            22,151.26
+ VBS  (oracle)                        16,888.27
+
+SBS-VBS gap: 5,262.99s PAR10 (23.8% of SBS) — the room a selector has to win.
+Instances no algorithm solves: 116 (32.9%) — unreachable by any selector.
+
+# SAT20-MAIN: 400 instances x 67 algorithms
+# cutoff 5000s, PAR10
+
+rank  algorithm                                                    PAR10   solved   oracle%
+   1  Kissat-sc2020-sat+default                                17,526.19   66.0%    10.2%
+   2  Kissat-sc2020-default+default                            17,970.24   65.2%     6.5%
+   3  Relaxed_LCMDCBDL_newTech+default                         18,640.31   63.7%     1.2%
+   4  cryptominisat-ccnr+default                               19,160.11   62.7%     1.5%
+   5  cryptominisat-ccnr-nolimits+default                      19,272.13   62.5%     2.5%
+   6  cryptominisat-ccnr-lsids+default                         19,349.32   62.3%     2.2%
+      ... 61 more                                         
+
+ SBS  Kissat-sc2020-sat+default                                17,526.19
+ VBS  (oracle)                                                  9,965.99
+
+SBS-VBS gap: 7,560.20s PAR10 (43.1% of SBS) — the room a selector has to win.
+Instances no algorithm solves: 77 (19.2%) — unreachable by any selector.
+
+# SAT20-MAIN: proposal Table 4.1 portfolio match
+
+MiniSat        ->  -- not present --
+Glucose        ->  glucose3.0+proofs
+CaDiCaL        ->  CaDiCaL-sc2020+default
+CryptoMiniSat  ->  cryptominisat-ccnr+default
+Kissat         ->  Kissat-sc2020-default+default
+
+4/5 solver families represented.
+
+# SAT20-MAIN[4 algs]: 400 instances x 4 algorithms
+# cutoff 5000s, PAR10
+
+rank  algorithm                             PAR10   solved   oracle%
+   1  Kissat-sc2020-default+default     17,970.24   65.2%    46.1%
+   2  cryptominisat-ccnr+default        19,160.11   62.7%    25.9%
+   3  CaDiCaL-sc2020+default            20,007.64   61.5%    17.2%
+   4  glucose3.0+proofs                 31,262.98   38.5%    10.8%
+
+ SBS  Kissat-sc2020-default+default     17,970.24
+ VBS  (oracle)                          13,347.13
+
+SBS-VBS gap: 4,623.11s PAR10 (25.7% of SBS) — the room a selector has to win.
+Instances no algorithm solves: 103 (25.8%) — unreachable by any selector.
+
+# SAT03-16_INDU: 2000 instances x 10 algorithms
+# cutoff 5000s, PAR10
+
+rank  algorithm               PAR10   solved   oracle%
+   1  maplecomsps_lrb     10,126.83   80.5%     9.1%
+   2  maplecomsps         10,213.29   80.5%    10.9%
+   3  cominisatps         11,278.21   78.1%     9.9%
+   4  riss5               12,172.96   76.3%    10.3%
+   5  maple_glucose       12,350.73   76.2%     5.1%
+   6  glucose_kiel        12,464.94   75.7%    13.1%
+      ... 4 more     
+
+ SBS  maplecomsps_lrb     10,126.83
+ VBS  (oracle)             6,991.73
+
+SBS-VBS gap: 3,135.10s PAR10 (31.0% of SBS) — the room a selector has to win.
+Instances no algorithm solves: 269 (13.5%) — unreachable by any selector.
+
+# SAT03-16_INDU: proposal Table 4.1 portfolio match
+
+MiniSat        ->  -- not present --
+Glucose        ->  -- not present --
+CaDiCaL        ->  -- not present --
+CryptoMiniSat  ->  -- not present --
+Kissat         ->  -- not present --
+
+0/5 solver families represented.
+
+no proposal-portfolio algorithms found in SAT03-16_INDU
