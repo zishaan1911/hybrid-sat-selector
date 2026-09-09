@@ -44,3 +44,6 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Sync bundles handed over from the cloud session
+*.bundle
