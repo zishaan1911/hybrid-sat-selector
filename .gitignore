@@ -1,26 +1,30 @@
-# Data — never committed
-data/
-cnf/
-aslib_data/
-benchmarks/
+# Datasets and downloads.
+# NOTE: anchored with a leading slash on purpose. An unanchored `data/` matches at ANY
+# depth, so it also matched src/hsat/data/ and silently kept the entire data package
+# out of the repository.
+/data/
+/cnf/
+/aslib_data/
+/benchmarks/
 *.cnf
 *.cnf.gz
 *.cnf.bz2
+*.cnf.xz
 *.arff
 
 # Models, caches, logs
-checkpoints/
-runs/
-logs/
-wandb/
+/checkpoints/
+/runs/
+/logs/
+/wandb/
+/cache/
 *.pt
 *.pth
 *.ckpt
-cache/
 
 # Solver builds
-solvers/
-scripts/build/
+/solvers/
+/scripts/build/
 
 # Python
 __pycache__/
@@ -29,21 +33,17 @@ __pycache__/
 venv/
 .env
 *.egg-info/
-build/
-dist/
+/build/
+/dist/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 .ipynb_checkpoints/
 
-# Keep result tables and configs (explicitly re-included)
-!experiments/**/results/**/*.csv
-!experiments/**/results/**/*.json
+# Sync bundles handed over from the cloud session
+*.bundle
 
 # OS / editor
 .DS_Store
 .vscode/
 .idea/
-
-# Sync bundles handed over from the cloud session
-*.bundle
