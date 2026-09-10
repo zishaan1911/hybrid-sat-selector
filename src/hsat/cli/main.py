@@ -239,9 +239,13 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument("--max-gb", type=float, help="stop once this many GB are fetched")
         p.set_defaults(func=func)
 
+    from .ablate import add_parser as add_ablate_parser
+    from .embed import add_parser as add_embed_parser
     from .graphs import add_parser as add_graphs_parser
 
     add_graphs_parser(sub)
+    add_embed_parser(sub)
+    add_ablate_parser(sub)
     return parser
 
 
