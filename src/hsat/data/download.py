@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import bz2
 import gzip
+import http.client
 import lzma
 import time
 import urllib.error
@@ -120,10 +121,14 @@ def fetch_entry(
     url = GBD_FILE_URL.format(hash=entry.hash)
     last: Exception | None = None
 
+    # http.client.IncompleteRead is an HTTPException, not an OSError, so it escapes a
+    # naive (URLError, OSError) clause. A truncated transfer is exactly the transient
+    # failure retrying exists for, and on a 1,838-instance download one of them is
+    # near-certain.
     for attempt in range(retries):
         try:
             payload = _request(url, timeout)
-        except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        except (urllib.error.URLError, http.client.HTTPException, OSError, TimeoutError) as exc:
             last = exc
             if attempt < retries - 1:
                 time.sleep(backoff * (attempt + 1))

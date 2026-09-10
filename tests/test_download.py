@@ -129,3 +129,21 @@ def test_failure_does_not_abort_the_remaining_downloads(resolver: CnfResolver, m
     ]
     outcomes = download.fetch_all(resolver, resolutions, retries=1, backoff=0)
     assert [o.ok for o in outcomes] == [False, True]
+
+
+def test_partial_read_is_retried_not_failed(tmp_path: Path, monkeypatch) -> None:
+    """IncompleteRead is an HTTPException, not an OSError, and escaped the retry clause."""
+    import http.client
+
+    calls = {"n": 0}
+
+    def truncating(url, timeout):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise http.client.IncompleteRead(b"partial", 999)
+        return lzma.compress(CNF)
+
+    monkeypatch.setattr(download, "_request", truncating)
+    entry = Entry("a" * 32, "alpha.cnf.xz")
+    download.fetch_entry(entry, tmp_path / "alpha.cnf.xz", retries=3, backoff=0)
+    assert calls["n"] == 2
