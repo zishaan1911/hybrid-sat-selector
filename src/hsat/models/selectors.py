@@ -105,6 +105,72 @@ def _feature_matrix(scenario: Scenario, idx: Sequence[int] | np.ndarray) -> np.n
     return scenario.features.to_numpy(dtype=np.float64)[np.asarray(idx, dtype=int)]
 
 
+SIZE_COLUMNS = ("nvars", "nclauses", "vars.clauses.ratio", "nvarsorig", "nclausesorig")
+
+
+def _size_matrix(scenario: Scenario) -> np.ndarray:
+    """The handful of trivial size statistics, as a deliberately weak control.
+
+    Any representation that does not clearly beat this is not earning its keep: variable
+    count, clause count and their ratio are free, need no extraction, no probing and no
+    graph. Reporting a learned representation without this control invites the reading
+    that the model discovered structure when it may only have discovered that big
+    instances are hard.
+    """
+    lowered = {c.lower(): c for c in scenario.features.columns}
+    present = [lowered[name] for name in SIZE_COLUMNS if name in lowered]
+    if not present:
+        raise KeyError(
+            f"{scenario.name}: none of {SIZE_COLUMNS} present among the scenario's features"
+        )
+    return scenario.features[present].to_numpy(dtype=np.float64)
+
+
+class Representation:
+    """What a selector is allowed to see about an instance.
+
+    The three settings the proposal's ablation compares (O4), behind one interface so
+    that the meta-classifier, the training procedure and the folds are held identical
+    and only the input matrix changes. Anything else varying between the three would
+    make the comparison meaningless.
+
+    "hybrid" is early fusion: the handcrafted vector concatenated with the pooled graph
+    embedding. Late and gated fusion combine predictions rather than inputs and are
+    separate classes.
+    """
+
+    KINDS = ("size", "features", "graph", "hybrid")
+
+    def __init__(self, kind: str, embeddings: np.ndarray | None = None) -> None:
+        if kind not in self.KINDS:
+            raise ValueError(f"unknown representation {kind!r}")
+        if kind in ("graph", "hybrid") and embeddings is None:
+            raise ValueError(f"representation {kind!r} requires an embedding matrix")
+        self.kind = kind
+        self.embeddings = embeddings
+
+    @property
+    def label(self) -> str:
+        return {"size": "Size", "features": "Feat", "graph": "Graph", "hybrid": "Hybrid"}[self.kind]
+
+    def matrix(self, scenario: Scenario, idx: Sequence[int] | np.ndarray) -> np.ndarray:
+        rows = np.asarray(idx, dtype=int)
+        if self.kind == "size":
+            return _size_matrix(scenario)[rows]
+        if self.kind == "features":
+            return _feature_matrix(scenario, rows)
+        assert self.embeddings is not None
+        if self.embeddings.shape[0] != scenario.n_instances:
+            raise ValueError(
+                f"embedding matrix has {self.embeddings.shape[0]} rows for "
+                f"{scenario.n_instances} instances - align by instance id, not position"
+            )
+        graph = self.embeddings[rows].astype(np.float64)
+        if self.kind == "graph":
+            return graph
+        return np.hstack([_feature_matrix(scenario, rows), graph])
+
+
 def _usable(rows: np.ndarray) -> np.ndarray:
     """Rows with at least one finite feature value."""
     return np.isfinite(rows).any(axis=1)
@@ -129,11 +195,14 @@ class FeatureClassifier:
         cost_sensitive: bool = True,
         seed: int = 0,
         name: str | None = None,
+        representation: Representation | None = None,
     ) -> None:
         self.estimator = estimator
         self.cost_sensitive = cost_sensitive
         self.seed = seed
-        self.name = name or f"Feature-clf({estimator}{', cost-sensitive' if cost_sensitive else ''})"
+        self.representation = representation or Representation("features")
+        suffix = ", cost-sensitive" if cost_sensitive else ""
+        self.name = name or f"{self.representation.label}-clf({estimator}{suffix})"
         self.fallback_ = 0
 
     def _make(self):
@@ -151,7 +220,7 @@ class FeatureClassifier:
         train_idx = np.asarray(train_idx, dtype=int)
         self.sbs_, _ = single_best(cost, train_idx)
 
-        rows = _feature_matrix(scenario, train_idx)
+        rows = self.representation.matrix(scenario, train_idx)
         keep = _usable(rows)
         sub_cost = cost[train_idx]
         labels = sub_cost.argmin(axis=1)
@@ -179,7 +248,7 @@ class FeatureClassifier:
         if self.degenerate_:
             self.fallback_ = len(test_idx)
             return choices
-        rows = _feature_matrix(scenario, test_idx)
+        rows = self.representation.matrix(scenario, test_idx)
         keep = _usable(rows)
         self.fallback_ = int((~keep).sum())
         if keep.any():
@@ -190,15 +259,21 @@ class FeatureClassifier:
 class FeatureRegressor:
     """SATzilla-style: predict each solver's log cost, run the argmin."""
 
-    def __init__(self, seed: int = 0, name: str | None = None) -> None:
+    def __init__(
+        self,
+        seed: int = 0,
+        name: str | None = None,
+        representation: Representation | None = None,
+    ) -> None:
         self.seed = seed
-        self.name = name or "Feature-reg(hgb, log-cost)"
+        self.representation = representation or Representation("features")
+        self.name = name or f"{self.representation.label}-reg(hgb, log-cost)"
         self.fallback_ = 0
 
     def fit(self, scenario: Scenario, train_idx: np.ndarray, cost: np.ndarray) -> "FeatureRegressor":
         train_idx = np.asarray(train_idx, dtype=int)
         self.sbs_, _ = single_best(cost, train_idx)
-        rows = _feature_matrix(scenario, train_idx)
+        rows = self.representation.matrix(scenario, train_idx)
         keep = _usable(rows)
         self.models_ = []
         targets = np.log10(1.0 + cost[train_idx])
@@ -215,7 +290,7 @@ class FeatureRegressor:
     def predict(self, scenario: Scenario, test_idx: np.ndarray) -> np.ndarray:
         test_idx = np.asarray(test_idx, dtype=int)
         choices = np.full(len(test_idx), self.sbs_, dtype=int)
-        rows = _feature_matrix(scenario, test_idx)
+        rows = self.representation.matrix(scenario, test_idx)
         keep = _usable(rows)
         self.fallback_ = int((~keep).sum())
         if keep.any():

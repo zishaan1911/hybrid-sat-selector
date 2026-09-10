@@ -159,3 +159,42 @@ def test_pooled_oracle_reaches_the_vbs(learnable: Scenario) -> None:
     result = cross_validate(learnable, OracleSelector)
     assert result.pooled.gap_closed == pytest.approx(1.0)
     assert result.pooled.accuracy == pytest.approx(1.0)
+
+
+# ------------------------------------------------------------ representations
+def test_representation_rejects_unknown_kinds_and_missing_embeddings() -> None:
+    from hsat.models.selectors import Representation
+
+    with pytest.raises(ValueError, match="unknown representation"):
+        Representation("telepathy")
+    with pytest.raises(ValueError, match="requires an embedding matrix"):
+        Representation("graph")
+
+
+def test_hybrid_representation_concatenates(learnable: Scenario) -> None:
+    from hsat.models.selectors import Representation
+
+    embeddings = np.arange(learnable.n_instances * 2, dtype=float).reshape(-1, 2)
+    idx = np.array([0, 5])
+    graph = Representation("graph", embeddings).matrix(learnable, idx)
+    hybrid = Representation("hybrid", embeddings).matrix(learnable, idx)
+    assert graph.shape == (2, 2)
+    assert hybrid.shape == (2, learnable.features.shape[1] + 2)
+    assert np.array_equal(hybrid[:, -2:], graph)
+
+
+def test_misaligned_embeddings_are_refused_not_silently_joined(learnable: Scenario) -> None:
+    """A positional join against the wrong row count pairs instances with each other's
+    embeddings, producing a plausible but meaningless graph-only result."""
+    from hsat.models.selectors import Representation
+
+    wrong = np.zeros((learnable.n_instances - 3, 4))
+    with pytest.raises(ValueError, match="align by instance id"):
+        Representation("graph", wrong).matrix(learnable, np.array([0, 1]))
+
+
+def test_size_representation_requires_the_columns(learnable: Scenario) -> None:
+    from hsat.models.selectors import Representation
+
+    with pytest.raises(KeyError, match="none of"):
+        Representation("size").matrix(learnable, np.array([0]))
