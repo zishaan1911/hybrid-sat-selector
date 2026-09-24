@@ -72,6 +72,8 @@ class CVResult:
     name: str
     folds: list[SelectorReport]
     pooled: Pooled | None = None
+    # Out-of-fold choice for every instance, in scenario order: what paired tests need.
+    choices: np.ndarray | None = None
 
     def _series(self, field: str) -> np.ndarray:
         return np.array([getattr(r, field) for r in self.folds], dtype=float)
@@ -168,7 +170,9 @@ def cross_validate(
         solved_fraction=float(scenario.solved[rows, choices].mean()),
         n_instances=int(rows.size),
     )
-    return CVResult(name=name, folds=reports, pooled=pooled)
+    ordered = np.zeros(scenario.n_instances, dtype=int)
+    ordered[rows] = choices
+    return CVResult(name=name, folds=reports, pooled=pooled, choices=ordered)
 
 
 def compare(
@@ -178,9 +182,19 @@ def compare(
     tolerance: float = 1e-6,
 ) -> list[dict[str, Any]]:
     """Run every selector over the same folds and return one summary row each."""
-    splits = fold_indices(scenario)
-    rows = []
-    for factory in factories:
-        result = cross_validate(scenario, factory, k=k, splits=splits, tolerance=tolerance)
-        rows.append(result.summary())
-    return rows
+    return [r.summary() for r in compare_results(scenario, factories, k, tolerance)]
+
+
+def compare_results(
+    scenario: Scenario,
+    factories: list[Callable[[], Selector]],
+    k: int = 10,
+    tolerance: float = 1e-6,
+    splits: list[tuple[np.ndarray, np.ndarray]] | None = None,
+) -> list[CVResult]:
+    """As `compare`, but keep the full results, including out-of-fold choices."""
+    splits = splits if splits is not None else fold_indices(scenario)
+    return [
+        cross_validate(scenario, factory, k=k, splits=splits, tolerance=tolerance)
+        for factory in factories
+    ]
