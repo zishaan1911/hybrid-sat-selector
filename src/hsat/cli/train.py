@@ -185,6 +185,26 @@ def cmd_train(args: argparse.Namespace) -> int:
             f"  {row['gap_closed']:>10.1%}  {row['accuracy']:>5.1%}  {row['solved_fraction']:>6.1%}"
         )
 
+    # Cost-accounted PAR10 (PLAN §6): charge each selector its own decision time.
+    from ..eval.cost import charged_costs, feature_overhead, graph_build_seconds, selector_overhead
+    from ..eval.metrics import gap_closed
+
+    first_fold = store.fold(scenario, splits[0][0], cost)
+    graph_seconds = graph_build_seconds(scenario, args.graph_stats) + first_fold.inference_seconds
+    features_seconds = feature_overhead(scenario)
+    reference = rows[0]
+    print(f"\n# charged with decision cost: features mean {features_seconds.mean():,.1f}s, "
+          f"graph mean {graph_seconds.mean():,.2f}s per instance (strict: a run pushed past "
+          f"the cutoff by its overhead is a timeout)")
+    for row, result in zip(rows, results):
+        overhead = selector_overhead(result.name, features_seconds, graph_seconds)
+        charged = float(charged_costs(scenario, result.choices, overhead, k=args.k).mean())
+        row["overhead_mean_s"] = float(overhead.mean())
+        row["par10_charged"] = charged
+        row["gap_closed_charged"] = gap_closed(charged, reference["sbs_par10"], reference["vbs_par10"])
+        print(f"{row['selector']:<{width}}  {charged:>10,.0f}  {row['gap_closed_charged']:>10.1%}"
+              f"  (overhead {overhead.mean():,.1f}s)")
+
     trained_graph = "GNN-direct" if config.mode == "supervised" else f"{label}-graph-clf"
     pairs = [
         (trained_graph, "Untrained-graph-clf"),
@@ -296,6 +316,8 @@ def add_parser(sub) -> None:
     p.add_argument("--only-fold", type=int, help="train this fold into the cache and exit")
     p.add_argument("--threads", type=int, help="torch CPU threads")
     p.add_argument("--k", type=int, default=10)
+    p.add_argument("--graph-stats", type=Path,
+                   help="`hsat graphs --stats` CSV: per-instance build time for cost accounting")
     p.add_argument("--out", type=Path, help="summary rows as CSV")
     p.add_argument("--report", type=Path, help="paired tests and training curves as JSON")
     add_training_arguments(p)
