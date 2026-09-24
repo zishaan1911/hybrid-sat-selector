@@ -102,6 +102,9 @@ def cmd_experiment(args: argparse.Namespace) -> int:
         scenario = scenario.subset_instances(mask, label="cnf")
         print(f"# restricted to instances with a cached CNF: {int(mask.sum())}/{mask.size}")
 
+    from .study import apply_split
+
+    scenario = apply_split(scenario, args.split)
     prototypes = default_selectors(seed=args.seed)
     factories = [(lambda p=p: deepcopy(p)) for p in prototypes]
     rows = compare(scenario, factories, k=args.k)
@@ -229,6 +232,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", type=Path, help="write the summary rows to a CSV file")
     p.add_argument("--native-features", type=Path,
                    help="replace the scenario's recorded features with a `hsat features` table")
+    from .study import add_split_argument
+
+    add_split_argument(p)
     p.set_defaults(func=cmd_experiment)
 
     for name, help_text, func in (
@@ -250,6 +256,7 @@ def build_parser() -> argparse.ArgumentParser:
     from .embed import add_parser as add_embed_parser
     from .features import add_parser as add_features_parser
     from .graphs import add_parser as add_graphs_parser
+    from .study import add_parser as add_study_parser
     from .train import add_parser as add_train_parser
 
     add_graphs_parser(sub)
@@ -257,6 +264,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_ablate_parser(sub)
     add_train_parser(sub)
     add_features_parser(sub)
+    add_study_parser(sub)
     return parser
 
 
