@@ -46,6 +46,9 @@ def cmd_ablate(args: argparse.Namespace) -> int:
     mask = has_graph & has_cnf
     scenario = scenario.subset_instances(mask, label="graph")
     matrix = embeddings.matrix_for(scenario)
+    from .study import apply_split
+
+    scenario = apply_split(scenario, args.split)
 
     print(f"# {scenario.name}")
     print(f"# instances usable by all three representations: {int(mask.sum())}/{mask.size}")
@@ -101,4 +104,7 @@ def add_parser(sub) -> None:
     p.add_argument("--k", type=int, default=10)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", type=Path)
+    from .study import add_split_argument
+
+    add_split_argument(p)
     p.set_defaults(func=cmd_ablate)
