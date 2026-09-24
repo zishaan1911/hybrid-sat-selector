@@ -196,8 +196,10 @@ class FeatureClassifier:
         seed: int = 0,
         name: str | None = None,
         representation: Representation | None = None,
+        params: dict | None = None,
     ) -> None:
         self.estimator = estimator
+        self.params = dict(params or {})
         self.cost_sensitive = cost_sensitive
         self.seed = seed
         self.representation = representation or Representation("features")
@@ -207,13 +209,11 @@ class FeatureClassifier:
 
     def _make(self):
         if self.estimator == "rf":
-            return RandomForestClassifier(
-                n_estimators=300, min_samples_leaf=2, random_state=self.seed, n_jobs=-1
-            )
+            settings = {"n_estimators": 300, "min_samples_leaf": 2, **self.params}
+            return RandomForestClassifier(random_state=self.seed, n_jobs=-1, **settings)
         if self.estimator == "hgb":
-            return HistGradientBoostingClassifier(
-                max_iter=300, learning_rate=0.08, random_state=self.seed
-            )
+            settings = {"max_iter": 300, "learning_rate": 0.08, **self.params}
+            return HistGradientBoostingClassifier(random_state=self.seed, **settings)
         raise ValueError(f"unknown estimator {self.estimator!r}")
 
     def fit(self, scenario: Scenario, train_idx: np.ndarray, cost: np.ndarray) -> "FeatureClassifier":
@@ -264,8 +264,10 @@ class FeatureRegressor:
         seed: int = 0,
         name: str | None = None,
         representation: Representation | None = None,
+        params: dict | None = None,
     ) -> None:
         self.seed = seed
+        self.params = dict(params or {})
         self.representation = representation or Representation("features")
         self.name = name or f"{self.representation.label}-reg(hgb, log-cost)"
         self.fallback_ = 0
@@ -278,11 +280,8 @@ class FeatureRegressor:
         self.models_ = []
         targets = np.log10(1.0 + cost[train_idx])
         for j in range(scenario.n_algorithms):
-            model = _pipeline(
-                HistGradientBoostingRegressor(
-                    max_iter=300, learning_rate=0.08, random_state=self.seed
-                )
-            )
+            settings = {"max_iter": 300, "learning_rate": 0.08, **self.params}
+            model = _pipeline(HistGradientBoostingRegressor(random_state=self.seed, **settings))
             model.fit(rows[keep], targets[keep, j])
             self.models_.append(model)
         return self
