@@ -4,7 +4,8 @@ Implementation plan for the FYP proposed in `PROPOSAL.md` (Zishaan Ahmed, UTAR F
 This document is the contract between the proposal and the code: every proposal objective maps to
 named modules, artefacts and exit criteria below.
 
-**Status:** draft 1 — written before any implementation code exists.
+**Status:** draft 1 was written before any implementation code existed; §11 records where the
+implementation now stands against it and where it deliberately departed from it.
 **Scope decision:** the full proposal is treated as required work (both fusion strategies,
 classification *and* regression formulations, ablations, learning curves).
 **Schedule basis:** milestone-based, with indicative week numbers against the 14-week trimester of
@@ -292,3 +293,39 @@ Checked directly while writing, not from memory:
 Worked figure behind the Phase-B sizing concern: 400 instances × 5 solvers × 5000 s worst case is
 1.0 × 10⁷ CPU-seconds ≈ 116 CPU-days, which is why the cutoff and instance count are the first
 things to reduce.
+
+---
+
+## 11. Implementation status against this plan
+
+| Milestone | State | Evidence |
+|---|---|---|
+| E0 repo, environment, plan | done | `pyproject.toml`, `uv.lock`, test suite |
+| E1 ASlib pipeline | done | `experiments/e1_baselines`, `e3_feature_selectors` |
+| E2 CNFs resolved | done (SAT18-EXP 94%, INDU 90%) | `experiments/e2_cnf_coverage`, `e7_scale` |
+| E3 O1 own extractor | implemented and unit-tested; validation against ASlib values needs the CNF cache | `features/`, `hsat features --validate` |
+| E4 O2 graphs + GNN | done | `experiments/e4_graphs`, `tests/test_gnn.py` |
+| E5 O3 fusion + heads | done: early, stacked, gated; classification and regression; trained encoder | `models/`, `experiments/e6_fusion` |
+| E6 O4 first full result | done, untrained encoder | `experiments/e5_ablation`, `e7_scale` |
+| E7 Phase B runtime matrix | **not started** — the study stands on ASlib data (the §8 fallback) | — |
+| E8 full results | cost accounting, learning curves, family split, tuning: see `experiments/e8_cost`, `e9_protocol`; trained encoder: `e10_training` | |
+| E9 report-ready | figures regenerate from committed results (`hsat figures`); run registry (`hsat run`) | `docs/figures/results/`, `experiments/runs.csv` |
+
+Departures from the plan, each for a stated reason:
+
+- **No PyTorch Geometric.** The one operation needed (scatter over an edge list) is
+  `index_add_` in core torch; dropping PyG removes the CUDA-matched extension install that
+  most often breaks graph-learning setups (`graph/torch_data.py`).
+- **Training budget below the caching budget.** Graphs are cached at 200k clauses (E4) but
+  the encoder trains on a 20k-clause subsample (10k on INDU): a backward pass at 200k costs
+  ~15× more on CPU. The untrained encoder is re-measured at the same budget so the
+  comparison isolates training (`models/train.py`).
+- **Two training regimes, both leak-free.** Supervised training runs inside each outer fold;
+  contrastive pretraining uses no labels and runs once. Joint end-to-end fine-tuning with
+  a tree head (M7's "joint" option) is covered by the direct cost head; stacking a tree on
+  in-sample supervised embeddings is reported with its bias stated (`models/trained.py`).
+- **Native extractor, not a SATzilla wrapper.** The C++ extractor is replaced by a numpy
+  implementation of the same base families, with unit propagation instead of SatELite
+  and sampled graph statistics; validated by rank correlation (`features/satzilla.py`).
+- **Families inferred from names.** ASlib has no family labels; `eval/splits.py` infers
+  them from instance names by an auditable rule and prints the grouping.
