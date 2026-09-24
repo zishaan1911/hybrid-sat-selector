@@ -242,10 +242,12 @@ def build_parser() -> argparse.ArgumentParser:
     from .ablate import add_parser as add_ablate_parser
     from .embed import add_parser as add_embed_parser
     from .graphs import add_parser as add_graphs_parser
+    from .train import add_parser as add_train_parser
 
     add_graphs_parser(sub)
     add_embed_parser(sub)
     add_ablate_parser(sub)
+    add_train_parser(sub)
     return parser
 
 
