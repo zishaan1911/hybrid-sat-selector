@@ -1,0 +1,7 @@
+name: e9_sat20_portfolio_aslib
+command: experiment
+scenario: data/SAT20-MAIN
+args:
+  portfolio: true
+  split: aslib
+  out: experiments/e9_protocol/results/sat20_portfolio_aslib.csv

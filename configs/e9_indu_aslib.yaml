@@ -1,0 +1,7 @@
+name: e9_indu_aslib
+command: experiment
+scenario: data/SAT03-16_INDU
+args:
+  portfolio: false
+  split: aslib
+  out: experiments/e9_protocol/results/indu_aslib.csv
