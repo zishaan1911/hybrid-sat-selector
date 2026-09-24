@@ -1,0 +1,6 @@
+name: e9_curves_sat18_portfolio
+command: curves
+scenario: data/SAT18-EXP
+args:
+  portfolio: true
+  out: experiments/e9_protocol/results/curves_sat18_portfolio.csv

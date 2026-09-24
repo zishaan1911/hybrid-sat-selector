@@ -1,0 +1,5 @@
+name: e9_curves_indu
+command: curves
+scenario: data/SAT03-16_INDU
+args:
+  out: experiments/e9_protocol/results/curves_indu.csv
