@@ -158,3 +158,36 @@ def scatter_mean(
     counts = torch.zeros(size, 1, dtype=source.dtype, device=source.device)
     counts.index_add_(0, index, torch.ones(index.shape[0], 1, dtype=source.dtype, device=source.device))
     return totals / counts.clamp(min=eps)
+
+
+def collate_tensors(items: list[GraphTensors]) -> GraphTensors:
+    """Disjoint union of graphs that were already converted with `to_tensors`.
+
+    Training revisits every graph once per epoch; recomputing node features and
+    re-converting numpy arrays each time would cost more than the forward pass on the
+    small graphs the CPU training budget produces. Converting once and batching tensors
+    keeps the per-step overhead to index offsets.
+    """
+    if not items:
+        raise ValueError("cannot collate an empty list of graphs")
+    if len(items) == 1:
+        return items[0]
+    literal_offsets = np.cumsum([0] + [g.n_literals for g in items[:-1]])
+    clause_offsets = np.cumsum([0] + [g.n_clauses for g in items[:-1]])
+    return GraphTensors(
+        n_literals=int(sum(g.n_literals for g in items)),
+        n_clauses=int(sum(g.n_clauses for g in items)),
+        literal_index=torch.cat(
+            [g.literal_index + int(o) for g, o in zip(items, literal_offsets)]
+        ),
+        clause_index=torch.cat([g.clause_index + int(o) for g, o in zip(items, clause_offsets)]),
+        literal_batch=torch.cat(
+            [torch.full((g.n_literals,), i, dtype=torch.int64) for i, g in enumerate(items)]
+        ),
+        clause_batch=torch.cat(
+            [torch.full((g.n_clauses,), i, dtype=torch.int64) for i, g in enumerate(items)]
+        ),
+        literal_features=torch.cat([g.literal_features for g in items]),
+        clause_features=torch.cat([g.clause_features for g in items]),
+        n_graphs=len(items),
+    )
