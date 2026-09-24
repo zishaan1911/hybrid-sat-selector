@@ -117,6 +117,9 @@ def cmd_train(args: argparse.Namespace) -> int:
         return 1
     scenario = scenario.subset_instances(mask, label="graph")
     sources = {name: sources[name] for name in scenario.instances}
+    from .study import apply_split
+
+    scenario = apply_split(scenario, args.split)
 
     print(f"# {scenario.name}")
     print(f"# instances with a graph: {int(mask.sum())}/{mask.size}")
@@ -296,4 +299,7 @@ def add_parser(sub) -> None:
     p.add_argument("--out", type=Path, help="summary rows as CSV")
     p.add_argument("--report", type=Path, help="paired tests and training curves as JSON")
     add_training_arguments(p)
+    from .study import add_split_argument
+
+    add_split_argument(p)
     p.set_defaults(func=cmd_train)
