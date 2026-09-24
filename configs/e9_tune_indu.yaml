@@ -4,3 +4,5 @@ scenario: data/SAT03-16_INDU
 args:
   out: experiments/e9_protocol/results/tune_indu.csv
   report: experiments/e9_protocol/results/tune_indu.json
+  grid: small
+  inner_folds: 2
