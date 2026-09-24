@@ -122,6 +122,22 @@ class Scenario:
             metadata=dict(self.metadata),
         )
 
+    def with_features(self, table: pd.DataFrame, label: str = "native") -> Scenario:
+        """Return a copy whose feature matrix is `table`, aligned by instance id.
+
+        Used to swap ASlib's recorded SATzilla values for the project's own extractor
+        (O1) without touching any selector. Instances missing from `table` get a row of
+        NaN, which every selector already treats as a failed extraction: SBS fallback,
+        counted and reported.
+        """
+        numeric = table.apply(pd.to_numeric, errors="coerce")
+        aligned = numeric.reindex(self.instances).reset_index(drop=True)
+        aligned.index = self.features.index
+        copy = self.subset_instances(np.ones(self.n_instances, dtype=bool), label=label)
+        copy.features = aligned
+        copy.feature_costs = None
+        return copy
+
     def summary(self) -> dict[str, Any]:
         total = self.solved.size
         return {
