@@ -58,7 +58,7 @@ def aslib_dir(tmp_path_factory) -> Path:
     n, algorithms = 50, ["alpha", "beta", "gamma"]
     runs, features, folds, hashes = [], [], [], []
     for i in range(n):
-        name = f"fam{i % 2}/inst{i:03d}.cnf"
+        name = f"fam{i % 2}/{'abcdefghij'[i % 10] * 3}_inst{i:03d}.cnf"  # 10 name families
         family = i % 2
         n_vars, n_clauses = int(rng.integers(20, 40)), int(rng.integers(60, 120))
         clauses = random_cnf_clauses(rng, n_vars, n_clauses, 0.8 if family == 0 else 0.2)
