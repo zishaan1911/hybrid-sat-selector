@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import subprocess
 import time
 from pathlib import Path
 
@@ -51,12 +50,9 @@ def graph_sources(scenario: Scenario, resolver: CnfResolver, graph_dir: Path) ->
 
 
 def git_commit() -> str:
-    try:
-        return subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
+    from .run import _git
+
+    return _git("rev-parse", "--short", "HEAD") or "unknown"
 
 
 def config_from_args(args: argparse.Namespace):
@@ -254,6 +250,10 @@ def cmd_train(args: argparse.Namespace) -> int:
                     "comparisons": comparisons,
                     "headroom": headroom.to_dict(),
                     "folds": histories,
+                    "algorithms": scenario.algorithms,
+                    "instances": scenario.instances,
+                    "choices": {r.name: r.choices.tolist() for r in results},
+                    "cost": cost.tolist(),
                 },
                 indent=2,
             ),
