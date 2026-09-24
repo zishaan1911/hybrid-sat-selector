@@ -63,7 +63,7 @@ def aslib_dir(tmp_path_factory) -> Path:
         n_vars, n_clauses = int(rng.integers(20, 40)), int(rng.integers(60, 120))
         clauses = random_cnf_clauses(rng, n_vars, n_clauses, 0.8 if family == 0 else 0.2)
         digest = hashlib.md5(name.encode()).hexdigest()
-        write_dimacs(cnf_dir / f"{digest}.cnf", n_vars, clauses)
+        write_dimacs(cnf_dir / digest, n_vars, clauses)  # resolver cache naming
         graph_from_clauses(n_vars, clauses).save(graph_dir / f"{digest}.npz")
         hashes.append(f"{digest} {Path(name).name}")
 
@@ -72,7 +72,7 @@ def aslib_dir(tmp_path_factory) -> Path:
         for algorithm in algorithms:
             t = times[algorithm] * float(rng.uniform(0.8, 1.2))
             runs.append(f"{name},1,{algorithm},{t:.3f},ok")
-        features.append(f"{name},1,{n_vars},{n_clauses},{n_clauses / n_vars:.4f},{rng.normal():.4f}")
+        features.append(f"{name},1,{n_vars},{n_clauses},{n_vars / n_clauses:.4f},{rng.normal():.4f}")
         folds.append(f"{name},1,{i % 5 + 1}")
 
     (scenario_dir / "description.txt").write_text(
