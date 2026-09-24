@@ -37,6 +37,12 @@ HGB_GRID = grid(
 )
 """16 points over the four settings that matter most for small-sample boosting."""
 
+HGB_GRID_SMALL = grid(learning_rate=[0.03, 0.1], max_leaf_nodes=[7, 31])
+"""4 points, for scenarios where the full grid is too expensive: SAT03-16_INDU has 10
+solvers, 483 features and ~1,800 instances against SAT18-EXP's 4, 54 and 353."""
+
+GRIDS = {"full": HGB_GRID, "small": HGB_GRID_SMALL}
+
 
 class TunedSelector:
     """Wrap a selector family with an inner-CV grid search inside each outer fold."""

@@ -3,3 +3,5 @@ command: curves
 scenario: data/SAT03-16_INDU
 args:
   out: experiments/e9_protocol/results/curves_indu.csv
+  fractions: 0.1,0.3,1.0
+  repeats: 2

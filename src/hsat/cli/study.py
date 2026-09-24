@@ -114,7 +114,7 @@ def cmd_curves(args: argparse.Namespace) -> int:
 def cmd_tune(args: argparse.Namespace) -> int:
     from ..eval.crossval import compare_results
     from ..eval.diagnostics import paired_comparison
-    from ..models.tuning import HGB_GRID, TunedSelector
+    from ..models.tuning import GRIDS, TunedSelector
 
     scenario, matrix = prepare(args)
     selectors = _selectors(matrix, args.seed)
@@ -125,7 +125,7 @@ def cmd_tune(args: argparse.Namespace) -> int:
         factories.append(lambda make=make, name=name: _named(make(), name))
         factories.append(
             lambda make=make, name=name: TunedSelector(
-                make, HGB_GRID, inner_folds=args.inner_folds, seed=args.seed, name=f"{name}-tuned"
+                make, GRIDS[args.grid], inner_folds=args.inner_folds, seed=args.seed, name=f"{name}-tuned"
             )
         )
         names.append(name)
@@ -210,6 +210,7 @@ def add_parser(sub) -> None:
     p = sub.add_parser("tune", help="nested-CV hyperparameter tuning against defaults")
     _common(p)
     p.add_argument("--inner-folds", type=int, default=3)
+    p.add_argument("--grid", choices=["full", "small"], default="full")
     p.add_argument("--all", action="store_true", help="also tune the size-only control")
     p.add_argument("--report", type=Path)
     p.set_defaults(func=cmd_tune)
