@@ -203,3 +203,5 @@ def test_train_cli_end_to_end(aslib_dir, tmp_path) -> None:
     assert rows["GNN-direct"]["config_key"] and rows["GNN-direct"]["git_commit"]
     report = json.loads((tmp_path / "report.json").read_text())
     assert len(report["folds"]) == 5 and len(report["comparisons"]) >= 3
+    assert float(rows["SBS"]["par10_charged"]) == pytest.approx(float(rows["SBS"]["par10"]))
+    assert float(rows["GNN-direct"]["overhead_mean_s"]) > 0

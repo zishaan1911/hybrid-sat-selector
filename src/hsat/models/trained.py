@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -115,6 +116,7 @@ class FoldOutput:
     history: list[dict] = field(default_factory=list)
     best_epoch: int = 0
     seconds: float = 0.0
+    inference_seconds: float = 0.0  # mean forward-pass time per graph, for cost accounting
 
 
 class TrainedEncoderStore:
@@ -183,7 +185,9 @@ class TrainedEncoderStore:
     def _embed(self, scenario: Scenario, result: TrainResult) -> FoldOutput:
         present = [i for i, name in enumerate(scenario.instances) if name in self.bank]
         graphs = [self.bank.tensors[scenario.instances[i]] for i in present]
+        started = time.perf_counter()
         costs, embeddings = predict(result, graphs)
+        per_graph = (time.perf_counter() - started) / max(len(graphs), 1)
         embedding_matrix = np.full((scenario.n_instances, embeddings.shape[1]), np.nan)
         embedding_matrix[present] = embeddings
         predicted = np.full((scenario.n_instances, scenario.n_algorithms), np.nan)
@@ -195,6 +199,7 @@ class TrainedEncoderStore:
             history=result.history,
             best_epoch=result.best_epoch,
             seconds=result.seconds,
+            inference_seconds=per_graph,
         )
 
     def _path(self, key: str) -> Path | None:
@@ -214,6 +219,9 @@ class TrainedEncoderStore:
                 history=json.loads(str(data["history"])),
                 best_epoch=int(data["best_epoch"]),
                 seconds=float(data["seconds"]),
+                inference_seconds=float(data["inference_seconds"])
+                if "inference_seconds" in data
+                else 0.0,
             )
 
     def _save(self, key: str, output: FoldOutput, scenario: Scenario) -> None:
@@ -229,6 +237,7 @@ class TrainedEncoderStore:
             history=np.array(json.dumps(output.history), dtype=object),
             best_epoch=output.best_epoch,
             seconds=output.seconds,
+            inference_seconds=output.inference_seconds,
             config=np.array(json.dumps(self.config.to_dict()), dtype=object),
         )
 
