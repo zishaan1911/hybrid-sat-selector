@@ -276,3 +276,53 @@ def build_graph(
         clause_index=clause_index,
         meta=meta,
     )
+
+
+def subsample_graph(
+    graph: LiteralClauseGraph, max_clauses: int | None, seed: int = 0
+) -> LiteralClauseGraph:
+    """Shrink an already-built graph to at most `max_clauses` clauses.
+
+    The training budget is far below the 200,000-clause caching budget: a backward pass
+    over a 200k-clause graph costs ~1.5 s on 4 CPU cores against ~0.1 s at 20k, which is
+    the difference between a training run of days and one of hours. Subsampling the
+    cached graph, rather than re-parsing the CNF, keeps training independent of the CNF
+    cache and is deterministic in (graph, budget, seed) for the same reason `build_graph`
+    is: two selectors compared against each other must see the same subformula.
+
+    Variables left without occurrences are dropped and the rest renumbered densely, as in
+    `build_graph`. The metadata records both budgets so the result stays traceable.
+    """
+    if max_clauses is None or graph.n_clauses <= max_clauses:
+        return graph
+    rng = np.random.default_rng(seed)
+    keep = np.zeros(graph.n_clauses, dtype=bool)
+    keep[rng.choice(graph.n_clauses, size=max_clauses, replace=False)] = True
+
+    edge_mask = keep[graph.clause_index]
+    clause_ids = graph.clause_index[edge_mask]
+    literal_ids = graph.literal_index[edge_mask]
+
+    kept_ids, clause_index = np.unique(clause_ids, return_inverse=True)
+    variables = literal_ids // 2
+    used, compact = np.unique(variables, return_inverse=True)
+    literal_index = 2 * compact + literal_ids % 2
+
+    meta = dict(graph.meta)
+    meta.update(
+        {
+            "sampled": True,
+            "train_max_clauses": max_clauses,
+            "train_sample_seed": seed,
+            "kept_clauses": int(kept_ids.size),
+            "variables_dropped": int(graph.meta.get("declared_variables", graph.n_variables))
+            - int(used.size),
+        }
+    )
+    return LiteralClauseGraph(
+        n_variables=int(used.size),
+        n_clauses=int(kept_ids.size),
+        literal_index=literal_index.astype(np.int32),
+        clause_index=clause_index.astype(np.int32),
+        meta=meta,
+    )
