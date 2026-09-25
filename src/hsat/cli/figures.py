@@ -94,9 +94,32 @@ def _legend(ax, kinds: list[str]) -> None:
 
 
 def display_name(selector: str) -> str:
-    """Drop the parenthetical training details: `Feat-clf(hgb, cost-sensitive)` -> `Feat-clf`."""
-    return selector.split("(")[0] if not selector.startswith(("VBS", "Stacked", "Trained-stacked",
-                                                              "Contrastive-stacked")) else selector
+    """Shorten the harness's names without merging distinct selectors.
+
+    The default configuration (HGB, cost-sensitive / log-cost) is dropped from the label;
+    anything that differs from it stays visible: `Feat-clf(hgb)` -> `Feat-clf plain`,
+    `Feat-clf(rf, cost-sensitive)` -> `Feat-clf RF`.
+    """
+    if "(" not in selector or selector.startswith(("VBS", "Trained-stacked", "Contrastive-stacked")):
+        return selector
+    base, detail = selector.split("(", 1)
+    detail = detail.rstrip(")")
+    parts = [p.strip() for p in detail.split(",")]
+    extras = []
+    if parts[0] not in ("hgb", ""):
+        extras.append(parts[0].upper())
+    if len(parts) == 1 and parts[0] == "hgb" and base.endswith("-clf"):
+        extras.append("plain")
+    return " ".join([base, *extras])
+
+
+def _spread(values: list[float], gap: float) -> list[float]:
+    """Nudge label positions apart so no two are closer than `gap`, keeping their order."""
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    placed = list(values)
+    for previous, current in zip(order, order[1:]):
+        placed[current] = max(placed[current], placed[previous] + gap)
+    return placed
 
 
 # -------------------------------------------------------------------- figures
@@ -138,7 +161,7 @@ def curves_figure(rows: list[dict], title: str, out: Path) -> Path:
     plt = _style()
     fig, ax = plt.subplots(figsize=(6.4, 3.8))
     selectors = list(dict.fromkeys(r["selector"] for r in rows))
-    kinds = []
+    kinds, ends = [], []
     for name in selectors:
         kind = representation_of(name)
         kinds.append(kind)
@@ -155,7 +178,12 @@ def curves_figure(rows: list[dict], title: str, out: Path) -> Path:
         ax.fill_between(x, [min(points[v]) for v in x], [max(points[v]) for v in x],
                         color=colour, alpha=0.1, linewidth=0)
         ax.scatter(x[-1:], mean[-1:], s=30, color=colour, edgecolors=SURFACE, linewidths=2, zorder=3)
-        ax.annotate(f"{name} {mean[-1]:.0f}%", (x[-1], mean[-1]), xytext=(6, 0),
+        ends.append((name, x[-1], mean[-1]))
+    low, high = ax.get_ylim()
+    for (name, x_end, y_end), y_label in zip(
+        ends, _spread([e[2] for e in ends], 0.045 * (high - low))
+    ):
+        ax.annotate(f"{display_name(name)} {y_end:.0f}%", (x_end, y_label), xytext=(8, 0),
                     textcoords="offset points", va="center", fontsize=7.5, color=INK)
     ax.axhline(0, color=INK_2, linewidth=1)
     ax.set_xlabel("training instances per fold")
