@@ -32,11 +32,18 @@ plan the code follows and `experiments/*/README.md` for every result, in order.
 | [E9](experiments/e9_protocol) | Family split, learning curves, tuning | see README |
 | [E10](experiments/e10_training) | Does *training* the encoder help? | see README |
 
-## Quick start
+## Train the encoder in one click
+
+**See [`TRAINING.md`](TRAINING.md).** Windows: double-click `train.cmd`. Linux/macOS:
+`./train.sh`. No GPU: open `notebooks/train_on_colab.ipynb` in Colab and *Run all*. Each sets
+up the environment, downloads the data, builds the graphs, trains inside cross-validation,
+and draws the figures, and resumes if interrupted.
+
+## Quick start (manual)
 
 ```bash
 uv venv && source .venv/bin/activate
-uv pip install -e ".[ml,graph,dev]"          # torch CPU wheels work; see pyproject.toml
+uv pip install -e ".[ml,graph,dev]"          # or let scripts/setup.py pick the torch build
 bash scripts/fetch_aslib.sh                   # ASlib scenarios into data/
 pytest                                        # unit + CLI tests (real-scenario tests need data/)
 
@@ -65,6 +72,7 @@ long run is unaffected by later edits. `hsat figures` redraws every figure in
 | `features` | native feature extraction (`--validate` against ASlib values) |
 | `curves`, `tune` | learning curves; nested-CV tuning against defaults |
 | `run`, `figures` | config harness and run registry; figure regeneration |
+| `pipeline` | everything above in order, resumable, CPU or GPU profile (what `train.cmd`/`train.sh` run) |
 
 ## Research question
 

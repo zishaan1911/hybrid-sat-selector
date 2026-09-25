@@ -74,6 +74,7 @@ def config_from_args(args: argparse.Namespace):
         val_fraction=args.val_fraction,
         patience=args.patience,
         seed=args.seed,
+        device=args.device,
     )
 
 
@@ -119,7 +120,10 @@ def cmd_train(args: argparse.Namespace) -> int:
 
     print(f"# {scenario.name}")
     print(f"# instances with a graph: {int(mask.sum())}/{mask.size}")
+    from ..models.train import resolve_device
+
     print(f"# training config {config.key()}: {config.to_dict()}")
+    print(f"# device: {resolve_device(config.device)}")
     started = time.time()
     bank = GraphBank(
         sources,
@@ -300,6 +304,8 @@ def add_training_arguments(p: argparse.ArgumentParser) -> None:
     p.add_argument("--val-fraction", type=float, default=0.15)
     p.add_argument("--patience", type=int, default=10)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--device", default="auto",
+                   help="auto (cuda > mps > cpu), or an explicit torch device such as cuda:1")
 
 
 def add_parser(sub) -> None:

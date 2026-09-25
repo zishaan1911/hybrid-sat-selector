@@ -74,6 +74,10 @@ class TrainConfig:
     # contrastive only
     view_fraction: float = 0.6
     contrastive_temperature: float = 0.2
+    # Where to compute: "auto" picks CUDA, then Apple MPS, then CPU. Not part of `key()`:
+    # the same config on another device is the same experiment (up to float rounding —
+    # CUDA scatter-adds are not bit-deterministic).
+    device: str = "auto"
 
     def __post_init__(self) -> None:
         if self.mode not in ("supervised", "contrastive"):
@@ -87,8 +91,20 @@ class TrainConfig:
         return asdict(self)
 
     def key(self) -> str:
-        blob = json.dumps(self.to_dict(), sort_keys=True).encode()
+        identity = {k: v for k, v in self.to_dict().items() if k != "device"}
+        blob = json.dumps(identity, sort_keys=True).encode()
         return hashlib.sha1(blob).hexdigest()[:12]
+
+
+def resolve_device(name: str = "auto") -> torch.device:
+    """"auto" -> cuda if available, else mps, else cpu; anything else is taken literally."""
+    if name != "auto":
+        return torch.device(name)
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
 
 
 def _encoder(config: TrainConfig) -> LiteralClauseGNN:
@@ -193,11 +209,12 @@ def train_supervised(
 
     mean = log_cost[fit_idx].mean(axis=0)
     std = np.maximum(log_cost[fit_idx].std(axis=0), 1e-3)
-    target = torch.tensor((log_cost - mean) / std, dtype=torch.float32)
-    regret_t = torch.tensor(regret, dtype=torch.float32)
+    device = resolve_device(config.device)
+    target = torch.tensor((log_cost - mean) / std, dtype=torch.float32, device=device)
+    regret_t = torch.tensor(regret, dtype=torch.float32, device=device)
     raw_cost = np.asarray(cost, dtype=np.float64)
 
-    model = CostModel(cost.shape[1], config)
+    model = CostModel(cost.shape[1], config).to(device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
 
     def run_epoch(indices: np.ndarray, train: bool) -> tuple[float, np.ndarray]:
@@ -205,7 +222,7 @@ def train_supervised(
         total, predictions = 0.0, []
         batches = _batches(rng.permutation(indices) if train else indices, config.batch_size)
         for chunk in batches:
-            batch = collate_tensors([graphs[i] for i in chunk])
+            batch = collate_tensors([graphs[i] for i in chunk]).to(device)
             with torch.set_grad_enabled(train):
                 predicted, _ = model(batch)
                 loss = selection_loss(
@@ -218,7 +235,7 @@ def train_supervised(
                     optimiser.step()
             total += float(loss.detach()) * len(chunk)
             if not train:
-                predictions.append(predicted.detach().numpy())
+                predictions.append(predicted.detach().cpu().numpy())
         stacked = np.concatenate(predictions) if predictions else np.zeros((0, cost.shape[1]))
         return total / max(len(indices), 1), stacked
 
@@ -250,7 +267,7 @@ def train_supervised(
             break
 
     model.load_state_dict(best_state)
-    model.eval()
+    model.to("cpu").eval()
     return TrainResult(
         model=model,
         config=config,
@@ -267,16 +284,18 @@ def predict(
     result: TrainResult, graphs: list[GraphTensors], batch_size: int = 16
 ) -> tuple[np.ndarray, np.ndarray]:
     """(predicted log10(1+cost), embedding) for each graph, in the given order."""
-    model = result.model.eval()
+    device = resolve_device(result.config.device)
+    model = result.model.to(device).eval()
     costs, embeddings = [], []
     for start in range(0, len(graphs), batch_size):
-        batch = collate_tensors(graphs[start : start + batch_size])
+        batch = collate_tensors(graphs[start : start + batch_size]).to(device)
         if isinstance(model, CostModel):
             predicted, embedding = model(batch)
-            costs.append(predicted.numpy() * result.std + result.mean)
+            costs.append(predicted.cpu().numpy() * result.std + result.mean)
         else:
             embedding = model(batch)
-        embeddings.append(embedding.numpy())
+        embeddings.append(embedding.cpu().numpy())
+    model.to("cpu")
     embedding_matrix = np.concatenate(embeddings)
     cost_matrix = (
         np.concatenate(costs) if costs else np.full((len(graphs), 0), np.nan)
@@ -297,7 +316,7 @@ def nt_xent(first: torch.Tensor, second: torch.Tensor, temperature: float) -> to
     similarity = z @ z.T / temperature
     n = first.shape[0]
     similarity.fill_diagonal_(float("-inf"))
-    targets = torch.cat([torch.arange(n, 2 * n), torch.arange(0, n)])
+    targets = torch.cat([torch.arange(n, 2 * n), torch.arange(0, n)]).to(first.device)
     return F.cross_entropy(similarity, targets)
 
 
@@ -339,7 +358,8 @@ def train_contrastive(
     started = time.time()
     rng = np.random.default_rng(config.seed)
 
-    model = _ContrastiveModel(config)
+    device = resolve_device(config.device)
+    model = _ContrastiveModel(config).to(device)
     optimiser = torch.optim.AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
     batch_size = max(config.batch_size, 4)
 
@@ -355,10 +375,10 @@ def train_contrastive(
             seeds = rng.integers(0, 2**31 - 1, size=(len(chunk), 2))
             first = collate_tensors(
                 [_view(graphs[i], config.view_fraction, int(s)) for i, s in zip(chunk, seeds[:, 0])]
-            )
+            ).to(device)
             second = collate_tensors(
                 [_view(graphs[i], config.view_fraction, int(s)) for i, s in zip(chunk, seeds[:, 1])]
-            )
+            ).to(device)
             loss = nt_xent(model(first), model(second), config.contrastive_temperature)
             optimiser.zero_grad()
             loss.backward()

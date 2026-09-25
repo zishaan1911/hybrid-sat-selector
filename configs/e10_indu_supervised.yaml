@@ -11,3 +11,4 @@ args:
   patience: 10
   out: experiments/e10_training/results/indu_supervised.csv
   report: experiments/e10_training/results/indu_supervised.json
+  graph_stats: data/graph_stats_SAT03-16_INDU.csv
