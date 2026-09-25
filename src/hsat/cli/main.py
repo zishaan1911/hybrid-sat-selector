@@ -257,6 +257,7 @@ def build_parser() -> argparse.ArgumentParser:
     from .features import add_parser as add_features_parser
     from .figures import add_parser as add_figures_parser
     from .graphs import add_parser as add_graphs_parser
+    from .pipeline import add_parser as add_pipeline_parser
     from .run import add_parser as add_run_parser
     from .study import add_parser as add_study_parser
     from .train import add_parser as add_train_parser
@@ -269,6 +270,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_study_parser(sub)
     add_run_parser(sub)
     add_figures_parser(sub)
+    add_pipeline_parser(sub)
     return parser
 
 
