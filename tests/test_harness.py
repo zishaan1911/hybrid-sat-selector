@@ -73,3 +73,36 @@ def test_figures_regenerate_from_result_files(tmp_path) -> None:
     assert {p.name for p in out.glob("*.png")} == {
         "ablation_run.png", "training_run.png", "cactus_run.png", "curves_x.png"
     }
+
+
+def test_pipeline_train_step_parallel_folds(aslib_dir, tmp_path, monkeypatch) -> None:
+    """Folds trained in separate processes are picked up by the recorded final run."""
+    import yaml
+
+    from hsat.cli.pipeline import fold_count, step_train
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "configs").mkdir()
+    out = tmp_path / "results" / "synth.csv"
+    config = {
+        "name": "synth", "command": "train", "scenario": str(aslib_dir / "SYNTH"),
+        "args": {
+            "map": str(aslib_dir / "map.txt"), "cache": str(aslib_dir / "cnf"),
+            "graphs": str(aslib_dir / "graphs"), "bank_cache": str(tmp_path / "bank"),
+            "fold_cache": str(tmp_path / "folds"), "mode": "supervised", "dim": 8,
+            "rounds": 1, "epochs": 3, "max_clauses": 80, "out": str(out),
+        },
+    }
+    (tmp_path / "configs" / "synth.yaml").write_text(yaml.safe_dump(config))
+    assert fold_count(aslib_dir / "SYNTH") == 5
+
+    step_train(tmp_path, "synth", jobs=2, threads=1, device="cpu")
+    assert len(list((tmp_path / "folds").glob("*.npz"))) >= 5  # 5 trained + untrained
+    assert sorted(p.name for p in (tmp_path / "logs").glob("*.log")) == [
+        f"train_fold{k}.log" for k in range(1, 6)
+    ]
+    assert out.exists()
+    registry = next(csv.DictReader((tmp_path / "experiments" / "runs.csv").open()))
+    assert "--device cpu" in registry["command_line"]
+
+    step_train(tmp_path, "synth", jobs=2, threads=1, device="cpu")  # present: skipped
