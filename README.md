@@ -29,8 +29,8 @@ plan the code follows and `experiments/*/README.md` for every result, in order.
 | [E6](experiments/e6_fusion) | Why doesn't fusion help? | complementarity exists but isn't predictable; n=333 is underpowered |
 | [E7](experiments/e7_scale) | Same question at n=1,802 | hybrid best but not significant |
 | [E8](experiments/e8_cost) | What does deciding cost? | graph branch 28× cheaper than SATzilla probing |
-| [E9](experiments/e9_protocol) | Family split, learning curves, tuning | see README |
-| [E10](experiments/e10_training) | Does *training* the encoder help? | see README |
+| [E9](experiments/e9_protocol) | Held-out families, learning curves, tuning | families held out: SAT18-EXP 68.8% → 2.3%; curves still rising; tuning changes nothing significant |
+| [E10](experiments/e10_training) | Does *training* the encoder help? | ready to run: `train.cmd` / `./train.sh` / Colab ([TRAINING.md](TRAINING.md)) |
 
 ## Train the encoder in one click
 
