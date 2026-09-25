@@ -1,0 +1,16 @@
+name: e10_gpu_sat18_contrastive
+command: train
+scenario: data/SAT18-EXP
+args:
+  portfolio: true
+  mode: contrastive
+  max_clauses: 100000
+  require_cnf: true
+  dim: 64
+  rounds: 3
+  epochs: 60
+  patience: 15
+  batch_size: 4
+  out: experiments/e10_training/results/sat18_contrastive_gpu.csv
+  report: experiments/e10_training/results/sat18_contrastive_gpu.json
+  graph_stats: data/graph_stats_SAT18-EXP.csv

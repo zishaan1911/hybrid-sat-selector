@@ -1,0 +1,15 @@
+name: e10_gpu_indu_supervised
+command: train
+scenario: data/SAT03-16_INDU
+args:
+  mode: supervised
+  max_clauses: 50000
+  require_cnf: true
+  dim: 64
+  rounds: 3
+  epochs: 40
+  patience: 15
+  batch_size: 4
+  out: experiments/e10_training/results/indu_supervised_gpu.csv
+  report: experiments/e10_training/results/indu_supervised_gpu.json
+  graph_stats: data/graph_stats_SAT03-16_INDU.csv
