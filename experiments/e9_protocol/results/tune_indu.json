@@ -1,0 +1,118 @@
+{
+  "comparisons": [
+    {
+      "name_a": "Feat-clf-tuned",
+      "name_b": "Feat-clf",
+      "par10_a": 9143.807506000001,
+      "par10_b": 9121.6199885,
+      "difference": 22.187517499999995,
+      "ci_low": -202.8868238875,
+      "ci_high": 245.74920481249995,
+      "p_value": 6.137358191781944e-10,
+      "n_differing": 592,
+      "wins_a": 197,
+      "wins_b": 395,
+      "significant": false
+    },
+    {
+      "name_a": "Feat-reg-tuned",
+      "name_b": "Feat-reg",
+      "par10_a": 8964.358021,
+      "par10_b": 9335.2035765,
+      "difference": -370.84555549999993,
+      "ci_low": -702.3997181875001,
+      "ci_high": -49.9454175,
+      "p_value": 0.6159220624063304,
+      "n_differing": 880,
+      "wins_a": 420,
+      "wins_b": 460,
+      "significant": false
+    }
+  ],
+  "chosen_params": {
+    "Feat-clf-tuned": [
+      {
+        "learning_rate": 0.1,
+        "max_leaf_nodes": 31
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.1,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.1,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.1,
+        "max_leaf_nodes": 31
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 31
+      }
+    ],
+    "Feat-reg-tuned": [
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 31
+      },
+      {
+        "learning_rate": 0.1,
+        "max_leaf_nodes": 31
+      },
+      {
+        "learning_rate": 0.1,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 31
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 31
+      },
+      {
+        "learning_rate": 0.03,
+        "max_leaf_nodes": 7
+      }
+    ]
+  }
+}
