@@ -205,3 +205,18 @@ def test_train_cli_end_to_end(aslib_dir, tmp_path) -> None:
     assert len(report["folds"]) == 5 and len(report["comparisons"]) >= 3
     assert float(rows["SBS"]["par10_charged"]) == pytest.approx(float(rows["SBS"]["par10"]))
     assert float(rows["GNN-direct"]["overhead_mean_s"]) > 0
+
+
+def test_device_is_not_part_of_the_experiment_identity(polarity_scenario) -> None:
+    from hsat.models.train import resolve_device
+
+    assert TrainConfig(device="cpu").key() == TrainConfig(device="cuda").key()
+    assert resolve_device("cpu").type == "cpu"
+    if resolve_device("auto").type == "cpu":
+        scenario, graphs = polarity_scenario
+        tensors = [to_tensors(graphs[name]) for name in scenario.instances[:20]]
+        cost = par_cost_matrix(scenario)[:20]
+        short = {**FAST.to_dict(), "epochs": 2}
+        a = train_supervised(tensors, cost, TrainConfig(**{**short, "device": "cpu"}))
+        b = train_supervised(tensors, cost, TrainConfig(**{**short, "device": "auto"}))
+        assert [r["fit_loss"] for r in a.history] == [r["fit_loss"] for r in b.history]

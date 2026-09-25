@@ -47,3 +47,6 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+
+# One-click setup marker
+.hsat-setup
