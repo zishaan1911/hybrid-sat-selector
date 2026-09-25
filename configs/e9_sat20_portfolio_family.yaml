@@ -1,0 +1,7 @@
+name: e9_sat20_portfolio_family
+command: experiment
+scenario: data/SAT20-MAIN
+args:
+  portfolio: true
+  split: family
+  out: experiments/e9_protocol/results/sat20_portfolio_family.csv

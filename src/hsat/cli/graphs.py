@@ -87,13 +87,20 @@ def cmd_graphs(args: argparse.Namespace) -> int:
     print(f"total nodes across the set: {nodes.sum():,.0f}")
 
     if args.stats:
+        # Merge with rows from earlier (interrupted) runs, so a resumed build still ends
+        # with a timing for every graph; this run's measurement wins on a repeat.
         path = Path(args.stats)
         path.parent.mkdir(parents=True, exist_ok=True)
+        merged = {}
+        if path.exists():
+            with path.open(encoding="utf-8") as handle:
+                merged = {r["instance_id"]: r for r in csv.DictReader(handle)}
+        merged.update({r["instance_id"]: r for r in rows})
         with path.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
             writer.writeheader()
-            writer.writerows(rows)
-        print(f"wrote {path}")
+            writer.writerows(merged.values())
+        print(f"wrote {path} ({len(merged)} graphs)")
     return 0
 
 

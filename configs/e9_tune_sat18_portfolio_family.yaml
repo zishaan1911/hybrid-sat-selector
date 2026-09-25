@@ -1,0 +1,8 @@
+name: e9_tune_sat18_portfolio_family
+command: tune
+scenario: data/SAT18-EXP
+args:
+  portfolio: true
+  split: family
+  out: experiments/e9_protocol/results/tune_sat18_portfolio_family.csv
+  report: experiments/e9_protocol/results/tune_sat18_portfolio_family.json

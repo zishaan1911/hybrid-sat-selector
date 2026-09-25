@@ -1,0 +1,14 @@
+name: e10_indu_contrastive
+command: train
+scenario: data/SAT03-16_INDU
+args:
+  mode: contrastive
+  max_clauses: 10000
+  require_cnf: true
+  dim: 32
+  rounds: 3
+  epochs: 30
+  patience: 10
+  out: experiments/e10_training/results/indu_contrastive.csv
+  report: experiments/e10_training/results/indu_contrastive.json
+  graph_stats: data/graph_stats_SAT03-16_INDU.csv
