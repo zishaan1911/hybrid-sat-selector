@@ -95,6 +95,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     status = 0
     for path in args.configs:
         config = load_config(path)
+        for override in args.set or []:
+            key, _, value = override.partition("=")
+            config.setdefault("args", {})[key.strip()] = yaml.safe_load(value)
         argv = config_argv(config)
         row = {
             "name": config.get("name", Path(path).stem),
@@ -131,4 +134,6 @@ def add_parser(sub) -> None:
     p.add_argument("configs", nargs="+", type=Path)
     p.add_argument("--registry", type=Path, default=Path("experiments/runs.csv"))
     p.add_argument("--dry-run", action="store_true", help="print the command lines only")
+    p.add_argument("--set", action="append", metavar="KEY=VALUE",
+                   help="override one config argument (repeatable), e.g. --set device=cuda")
     p.set_defaults(func=cmd_run)
