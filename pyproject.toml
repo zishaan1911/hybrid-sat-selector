@@ -14,8 +14,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Meta-classifier and plotting: needed from E5/E6 onward.
-ml = ["xgboost>=2.0", "matplotlib>=3.8"]
+# Plotting (hsat figures). The meta-classifiers are scikit-learn's gradient boosting.
+ml = ["matplotlib>=3.8"]
 # Graph branch. torch/PyG wheels are platform-specific; see docs/PLAN.md section 5.
 # CPU:  uv pip install torch --index-url https://download.pytorch.org/whl/cpu
 # CUDA: uv pip install torch --index-url https://download.pytorch.org/whl/cu124
