@@ -13,3 +13,4 @@ args:
   patience: 10
   out: experiments/e10_training/results/sat18_supervised_family.csv
   report: experiments/e10_training/results/sat18_supervised_family.json
+  graph_stats: data/graph_stats_SAT18-EXP.csv
