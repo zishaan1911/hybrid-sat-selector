@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ..atomic import is_complete_npz
 from ..data.gbd import HashMap
 from ..data.resolver import CnfResolver
 from ..data.scenario import Scenario
@@ -41,7 +42,9 @@ def cmd_graphs(args: argparse.Namespace) -> int:
     for n, resolution in enumerate(resolutions, start=1):
         target = out_dir / f"{resolution.entry.hash}.npz"
         if target.exists() and not args.force:
-            continue
+            if is_complete_npz(target):
+                continue
+            print(f"  rebuilding unreadable {target.name} (left by an interrupted run)")
         started = time.time()
         try:
             graph = build_graph(resolution.path, budget, seed=args.seed)
