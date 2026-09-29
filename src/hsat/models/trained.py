@@ -95,7 +95,15 @@ class GraphBank:
                     return LiteralClauseGraph.load(cached)
                 except UNREADABLE:
                     pass  # truncated by a crash: rebuild it below
-        graph = subsample_graph(LiteralClauseGraph.load(source), self.max_clauses, seed=self.seed)
+        try:
+            full = LiteralClauseGraph.load(source)
+        except UNREADABLE as exc:
+            raise SystemExit(
+                f"graph file for {instance} is unreadable ({source}): {exc}. It was probably "
+                "left by an interrupted run; `hsat graphs` (step 4 of `hsat pipeline`) "
+                "rebuilds unreadable graphs, so run the pipeline again."
+            ) from exc
+        graph = subsample_graph(full, self.max_clauses, seed=self.seed)
         if cached is not None:
             graph.save(cached)
         return graph
