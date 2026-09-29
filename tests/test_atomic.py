@@ -129,3 +129,29 @@ def test_train_prepare_only_builds_the_cache_and_trains_nothing(aslib_dir, tmp_p
     ]) == 0
     assert len(list((tmp_path / "bank").rglob("*.npz"))) == 50
     assert not (tmp_path / "folds").exists()
+
+
+def test_hsat_graphs_rebuilds_a_truncated_graph(aslib_dir, tmp_path) -> None:
+    import shutil
+
+    from hsat.cli.main import main
+
+    graphs = tmp_path / "graphs"
+    shutil.copytree(aslib_dir / "graphs", graphs)
+    victim = sorted(graphs.glob("*.npz"))[0]
+    victim.write_bytes(victim.read_bytes()[:50])
+    assert main([
+        "graphs", str(aslib_dir / "SYNTH"), "--map", str(aslib_dir / "map.txt"),
+        "--cache", str(aslib_dir / "cnf"), "--out", str(graphs),
+    ]) == 0
+    LiteralClauseGraph.load(victim)  # whole again; the other 49 were left alone
+
+
+def test_unreadable_source_graph_names_the_file_and_the_fix(tmp_path) -> None:
+    pytest.importorskip("torch")
+    from hsat.models.trained import GraphBank
+
+    broken = tmp_path / "abc.npz"
+    broken.write_bytes(b"not a zip")
+    with pytest.raises(SystemExit, match="abc.npz.*hsat graphs"):
+        GraphBank({"inst": broken}, max_clauses=100)
