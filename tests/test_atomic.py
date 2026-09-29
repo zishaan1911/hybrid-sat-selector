@@ -31,6 +31,55 @@ def test_savez_atomic_leaves_no_temporary_files(tmp_path) -> None:
         assert data["x"].tolist() == [0, 1, 2]
 
 
+def _locked(times: int, real):
+    """Stand-in for a Windows call that finds the file locked `times` times first."""
+    calls = []
+
+    def call(*args, **kwargs):
+        calls.append(args)
+        if len(calls) <= times:
+            raise PermissionError(13, "Access is denied")
+        return real(*args, **kwargs)
+
+    return call, calls
+
+
+def test_savez_atomic_waits_out_a_windows_rename_lock(tmp_path, monkeypatch) -> None:
+    from hsat import atomic
+
+    replace, calls = _locked(2, atomic.os.replace)
+    monkeypatch.setattr(atomic.os, "replace", replace)
+    monkeypatch.setattr(atomic.time, "sleep", lambda _: None)
+    savez_atomic(tmp_path / "a.npz", x=np.arange(3))
+    assert len(calls) == 3
+    assert [p.name for p in tmp_path.iterdir()] == ["a.npz"]
+
+
+def test_savez_atomic_keeps_a_complete_file_it_cannot_replace(tmp_path, monkeypatch) -> None:
+    from hsat import atomic
+
+    savez_atomic(tmp_path / "a.npz", x=np.arange(3))
+    replace, _ = _locked(10**6, atomic.os.replace)
+    monkeypatch.setattr(atomic.os, "replace", replace)
+    monkeypatch.setattr(atomic.time, "sleep", lambda _: None)
+    savez_atomic(tmp_path / "a.npz", x=np.arange(3))  # same key, same contents: no error
+    assert [p.name for p in tmp_path.iterdir()] == ["a.npz"]
+    with pytest.raises(PermissionError):
+        savez_atomic(tmp_path / "b.npz", x=np.arange(3))  # nothing in place: not hidden
+    assert [p.name for p in tmp_path.iterdir()] == ["a.npz"]
+
+
+def test_graph_load_waits_out_a_windows_rename_lock(tmp_path, monkeypatch) -> None:
+    from hsat import atomic
+
+    path = _graph(n_clauses=10).save(tmp_path / "g.npz")
+    load, calls = _locked(2, atomic.np.load)
+    monkeypatch.setattr(atomic.np, "load", load)
+    monkeypatch.setattr(atomic.time, "sleep", lambda _: None)
+    assert LiteralClauseGraph.load(path).n_clauses == 10
+    assert len(calls) == 3
+
+
 def test_truncated_graph_cache_is_rebuilt(tmp_path) -> None:
     pytest.importorskip("torch")
     from hsat.models.trained import GraphBank
