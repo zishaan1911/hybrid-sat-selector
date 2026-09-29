@@ -23,9 +23,10 @@ regenerated exactly and two selectors never see different samples of the same in
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 
@@ -96,9 +97,9 @@ class LiteralClauseGraph:
         return np.bincount(self.clause_index, minlength=self.n_clauses)
 
     def save(self, path: str | Path) -> Path:
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(
+        from ..atomic import savez_atomic
+
+        return savez_atomic(
             path,
             n_variables=self.n_variables,
             n_clauses=self.n_clauses,
@@ -106,7 +107,6 @@ class LiteralClauseGraph:
             clause_index=self.clause_index,
             meta=np.array(repr(self.meta), dtype=object),
         )
-        return path
 
     @classmethod
     def load(cls, path: str | Path) -> LiteralClauseGraph:
@@ -228,8 +228,7 @@ def build_graph(
                 buffer_literals.append(literal)
                 buffer_clauses.append(kept)
                 variable = abs(literal)
-                if variable > max_variable:
-                    max_variable = variable
+                max_variable = max(max_variable, variable)
             kept += 1
             if len(buffer_literals) > 4_000_000:
                 flush()
