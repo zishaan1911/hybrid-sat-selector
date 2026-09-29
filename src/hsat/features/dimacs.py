@@ -113,6 +113,11 @@ def _fast_ints(text: str) -> np.ndarray:
     """Whitespace-separated integers via numpy's C parser (much faster than split)."""
     import warnings
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        return np.fromstring(text, dtype=np.int64, sep=" ")
+    # Text-mode `fromstring` is on NumPy's deprecation path; fall back to the (slower,
+    # always-available) split if a future NumPy removes or rejects it.
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            return np.fromstring(text, dtype=np.int64, sep=" ")
+    except (AttributeError, TypeError, ValueError):
+        return np.array(text.split(), dtype=np.int64)
