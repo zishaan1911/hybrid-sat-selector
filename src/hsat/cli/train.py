@@ -133,6 +133,8 @@ def cmd_train(args: argparse.Namespace) -> int:
         log=print,
     )
     print(f"# graphs at training budget ready in {time.time() - started:.0f}s")
+    if args.prepare_only:
+        return 0
 
     from ..eval.metrics import par_cost_matrix
 
@@ -320,6 +322,9 @@ def add_parser(sub) -> None:
     p.add_argument("--require-cnf", action="store_true",
                    help="also require the CNF itself to be cached (as `hsat ablate` does)")
     p.add_argument("--only-fold", type=int, help="train this fold into the cache and exit")
+    p.add_argument("--prepare-only", action="store_true",
+                   help="build the training-budget graph cache and exit (run once before "
+                        "training folds in parallel, so they do not all build it at once)")
     p.add_argument("--threads", type=int, help="torch CPU threads")
     p.add_argument("--k", type=int, default=10)
     p.add_argument("--graph-stats", type=Path,
