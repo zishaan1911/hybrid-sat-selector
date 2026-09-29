@@ -76,6 +76,15 @@ def fold_count(scenario_dir: str | Path, split: str = "aslib") -> int:
     return len(np.unique(scenario.folds)) if scenario.folds is not None else 10
 
 
+DISK_HEADROOM_GB = 1.0  # training caches, logs, figures, and room for the OS
+
+
+def _size_gb(directory: Path) -> float:
+    if not directory.exists():
+        return 0.0
+    return sum(f.stat().st_size for f in directory.rglob("*") if f.is_file()) / 1e9
+
+
 def _say(message: str) -> None:
     print(f"\n==> {message}", flush=True)
 
@@ -137,10 +146,15 @@ def _parallel_folds(config_argv: list[str], folds: int, jobs: int, threads: int)
 
     def run(command: list[str]) -> int:
         fold = command[command.index("--only-fold") + 1]
-        with (logs / f"{config_argv[0]}_fold{fold}.log").open("w") as log:
+        path = logs / f"{config_argv[0]}_fold{fold}.log"
+        with path.open("w") as log:
             code = subprocess.call(command, stdout=log, stderr=subprocess.STDOUT)
-        print(f"  fold {fold}: {'done' if code == 0 else f'FAILED ({code}), see {log.name}'}",
-              flush=True)
+        if code == 0:
+            print(f"  fold {fold}: done", flush=True)
+        else:
+            tail = path.read_text(errors="replace").strip().splitlines()[-8:]
+            print(f"  fold {fold}: FAILED ({code}), last lines of {path}:\n"
+                  + "\n".join(f"      {line}" for line in tail), flush=True)
         return code
 
     with ThreadPoolExecutor(max_workers=jobs) as pool:
@@ -161,6 +175,9 @@ def step_train(root: Path, config_name: str, jobs: int, threads: int, device: st
         print(f"{out}: present (set HSAT_RERUN=1 to redo)")
         return
     if config["args"].get("mode") == "supervised" and jobs > 1:
+        # Build the shared graph cache once, before several processes need it.
+        if _hsat([*argv, "--prepare-only"]):
+            raise SystemExit(f"{config_name}: preparing the training graphs failed")
         folds = fold_count(config["scenario"], config["args"].get("split", "aslib"))
         print(f"training {folds} folds, {jobs} at a time, {threads} threads each")
         _parallel_folds(argv, folds, jobs, threads)
@@ -203,12 +220,19 @@ def cmd_pipeline(args: argparse.Namespace) -> int:
 
     download = sum(SCENARIOS[n]["download_gb"] for n in names)
     free = shutil.disk_usage(root).free / 1e9
+    # CNFs + graphs take ~1.6x the download; whatever is already in data/ counts as done.
+    needed = max(0.0, 1.6 * download - _size_gb(root / "data")) + DISK_HEADROOM_GB
     print(f"profile {profile} on {device}; scenarios {names}; {jobs} parallel fold job(s) x "
           f"{threads} thread(s)")
-    print(f"downloads ~{download:.1f} GB of CNFs (+ graphs ~{download * 0.6:.1f} GB); "
-          f"{free:.0f} GB free")
-    if free < download * 2 + 2:
-        print("warning: disk space looks tight for these scenarios")
+    print(f"CNFs ~{download:.1f} GB + graphs ~{0.6 * download:.1f} GB in total; still needs "
+          f"~{needed:.1f} GB, {free:.1f} GB free")
+    if free < needed and not args.ignore_disk:
+        raise SystemExit(
+            f"not enough disk space: ~{needed:.1f} GB needed, {free:.1f} GB free on "
+            f"{root.anchor or root}. Free some space (or move the repository to a drive with "
+            "more room) and run again; everything already downloaded is kept. "
+            "--ignore-disk skips this check."
+        )
     configs = [c for n in names for c in SCENARIOS[n]["configs"][profile]]
     print("training configs: " + ", ".join(configs))
     if args.dry_run:
@@ -256,4 +280,5 @@ def add_parser(sub) -> None:
     p.add_argument("--steps", default="all",
                    help="comma-separated subset of aslib,map,fetch,graphs,train,figures")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--ignore-disk", action="store_true", help="skip the free-space check")
     p.set_defaults(func=cmd_pipeline)
