@@ -32,6 +32,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ..atomic import UNREADABLE, savez_atomic
 from ..data.scenario import Scenario
 from ..eval.metrics import single_best
 from ..graph.builder import LiteralClauseGraph, subsample_graph
@@ -90,7 +91,10 @@ class GraphBank:
         if cache_dir is not None:
             cached = cache_dir / Path(source).name
             if cached.exists():
-                return LiteralClauseGraph.load(cached)
+                try:
+                    return LiteralClauseGraph.load(cached)
+                except UNREADABLE:
+                    pass  # truncated by a crash: rebuild it below
         graph = subsample_graph(LiteralClauseGraph.load(source), self.max_clauses, seed=self.seed)
         if cached is not None:
             graph.save(cached)
@@ -209,6 +213,13 @@ class TrainedEncoderStore:
         path = self._path(key)
         if path is None or not path.exists():
             return None
+        try:
+            return self._read(path, scenario)
+        except UNREADABLE:
+            return None  # truncated by a crash: retrain this fold
+
+    @staticmethod
+    def _read(path: Path, scenario: Scenario) -> FoldOutput | None:
         with np.load(path, allow_pickle=True) as data:
             instances = [str(i) for i in data["instances"]]
             if instances != scenario.instances:
@@ -228,8 +239,7 @@ class TrainedEncoderStore:
         path = self._path(key)
         if path is None:
             return
-        path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(
+        savez_atomic(
             path,
             embeddings=output.embeddings,
             predicted=output.predicted,
