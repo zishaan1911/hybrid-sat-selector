@@ -83,6 +83,9 @@ the difference in raw gap-closed alone is not.
 | Symptom | Cause and fix |
 |---|---|
 | `cannot download the GBD hash map from zenodo.org` | network blocks zenodo.org or benchmark-database.de; try another network |
-| `some folds failed` | open `logs/<config>_fold<k>.log`; re-running retries only the failed folds |
+| `not enough disk space` | the check counts only what is still to be written; free space or move the folder, then run again — nothing downloaded is lost |
+| `some folds failed` | the last lines of each failed fold's log are printed; the full log is `logs/train_fold<k>.log`. Re-running retries only the failed folds |
+| a fold exits with code 120 | Python could not write its output: almost always a full disk |
+| `20 failed` while fetching CNFs | expected: GBD does not serve 20 SAT18-EXP files (E2); the study uses the other 333 |
 | CUDA out of memory | lower the budget: `--profile cpu` (runs the smaller graphs on the GPU) |
 | want a clean retrain | delete `data/trained/` (cached folds) and `experiments/e10_training/results/`; `HSAT_RERUN=1` alone re-evaluates from the cached folds |
