@@ -11,13 +11,20 @@ in one step, and every cache read treats an unreadable file as absent.
 from __future__ import annotations
 
 import os
+import pickle
 import zipfile
 from pathlib import Path
 
 import numpy as np
 
-# What a truncated or half-written .npz raises when opened or read.
-UNREADABLE = (zipfile.BadZipFile, EOFError, ValueError, OSError, KeyError)
+# What a truncated, half-written or foreign .npz raises when opened or read (a file that
+# is not a zip at all makes np.load fall back to unpickling it).
+UNREADABLE = (zipfile.BadZipFile, EOFError, ValueError, OSError, KeyError, pickle.UnpicklingError)
+
+
+def is_complete_npz(path: str | Path) -> bool:
+    """Cheap check that a cache file is whole: a truncated zip has no end record."""
+    return Path(path).is_file() and zipfile.is_zipfile(path)
 
 
 def savez_atomic(path: str | Path, **arrays) -> Path:
