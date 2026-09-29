@@ -112,7 +112,9 @@ class LiteralClauseGraph:
     def load(cls, path: str | Path) -> LiteralClauseGraph:
         from ast import literal_eval
 
-        with np.load(path, allow_pickle=True) as data:
+        from ..atomic import load_npz
+
+        with load_npz(path) as data:
             return cls(
                 n_variables=int(data["n_variables"]),
                 n_clauses=int(data["n_clauses"]),

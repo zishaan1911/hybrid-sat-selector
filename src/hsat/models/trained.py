@@ -32,7 +32,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ..atomic import UNREADABLE, savez_atomic
+from ..atomic import UNREADABLE, load_npz, savez_atomic
 from ..data.scenario import Scenario
 from ..eval.metrics import single_best
 from ..graph.builder import LiteralClauseGraph, subsample_graph
@@ -228,8 +228,8 @@ class TrainedEncoderStore:
 
     @staticmethod
     def _read(path: Path, scenario: Scenario) -> FoldOutput | None:
-        with np.load(path, allow_pickle=True) as data:
-            instances = [str(i) for i in data["instances"]]
+        with load_npz(path) as data:
+            instances =[str(i) for i in data["instances"]]
             if instances != scenario.instances:
                 return None
             return FoldOutput(
