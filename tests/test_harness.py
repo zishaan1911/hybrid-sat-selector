@@ -43,6 +43,30 @@ def test_run_records_registry_row(aslib_dir, tmp_path) -> None:
     assert out.exists()
 
 
+def test_registry_and_own_outputs_do_not_make_a_run_dirty(tmp_path, monkeypatch) -> None:
+    from hsat.cli import run
+
+    status = {"value": ""}
+
+    def fake_git(*args, strip=True):
+        if args[:1] == ("rev-parse",):
+            return str(tmp_path)
+        return status["value"]
+
+    monkeypatch.setattr(run, "_git", fake_git)
+    monkeypatch.chdir(tmp_path)
+    ignore = ["experiments/runs.csv", "experiments/e10/results/a.csv"]
+
+    status["value"] = " M experiments/runs.csv\0 M experiments/e10/results/a.csv\0"
+    assert not run._dirty(ignore)  # an earlier config appended its row: still clean
+    status["value"] = " M experiments/runs.csv\0M  src/hsat/models/train.py\0"
+    assert run._dirty(ignore)  # code changed: dirty
+    status["value"] = "R  src/new.py\0src/old.py\0"
+    assert run._dirty(ignore)  # a rename is a change too
+    status["value"] = ""
+    assert not run._dirty(ignore)
+
+
 def test_figures_regenerate_from_result_files(tmp_path) -> None:
     pytest.importorskip("matplotlib")
     from hsat.cli.main import main
