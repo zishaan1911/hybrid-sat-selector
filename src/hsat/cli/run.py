@@ -72,16 +72,41 @@ def config_hash(path: str | Path) -> str:
     return hashlib.sha1(Path(path).read_bytes()).hexdigest()[:12]
 
 
-def _git(*args: str) -> str:
+def _git(*args: str, strip: bool = True) -> str:
     try:
         # Ask the checkout the running code came from, not the shell's cwd: experiments
         # run from a pinned worktree must record that worktree's commit.
         here = Path(__file__).resolve().parent
-        return subprocess.run(
+        out = subprocess.run(
             ["git", "-C", str(here), *args], capture_output=True, text=True, check=True
-        ).stdout.strip()
+        ).stdout
+        return out.strip() if strip else out
     except (OSError, subprocess.CalledProcessError):
         return ""
+
+
+def _dirty(ignore: list[str | Path]) -> bool:
+    """Do tracked files differ from HEAD, other than the registry and this run's outputs?
+
+    Those files change by design: once one config has appended its row, the registry is
+    modified, and every later config in the same session (`hsat pipeline` runs several)
+    would otherwise be recorded as run from modified code.
+    """
+    top = _git("rev-parse", "--show-toplevel")
+    status = _git("status", "--porcelain", "-z", "--untracked-files=no", strip=False)
+    if not top:
+        return bool(status.strip())
+    skip = {Path(p).resolve() for p in ignore}
+    entries = iter(status.split("\0"))
+    for entry in entries:
+        if not entry:
+            continue
+        code, path = entry[:2], entry[3:]
+        if "R" in code or "C" in code:
+            next(entries, None)  # -z lists a rename's source as the next entry
+        if (Path(top) / path).resolve() not in skip:
+            return True
+    return False
 
 
 def _outputs(config: dict[str, Any]) -> list[str]:
@@ -104,7 +129,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             "config": str(path),
             "config_hash": config_hash(path),
             "git_commit": _git("rev-parse", "--short", "HEAD") or "unknown",
-            "dirty": int(bool(_git("status", "--porcelain", "--untracked-files=no"))),
+            "dirty": int(_dirty([args.registry, *_outputs(config)])),
             "started_utc": datetime.now(UTC).isoformat(timespec="seconds"),
             "outputs": ";".join(_outputs(config)),
             "command_line": "hsat " + " ".join(argv),
